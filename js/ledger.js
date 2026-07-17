@@ -124,18 +124,24 @@ function unpaid(inv) { return Math.max(0, totalProfit(inv) - totalPaid(inv)); }
 function nextProfitDate(inv) { if (isSettled(inv) || !inv.startDate) return ''; const s = buildProfitSchedule(inv); const base = s.length ? gregStrToJalali(s[s.length - 1].gregDate) : gregStrToJalali(inv.startDate); return jalaliObjToGreg(...Object.values(jAddMonths(base, 1))); }
 function investorStatus(inv) { if (isSettled(inv) || activeCapital(inv) <= 0) return 'Settled'; const due = unpaid(inv); if (due <= 0) return 'Active'; const next = nextProfitDate(inv); if (next && next < todayGregorian()) return 'Overdue'; return 'Pending Payment'; }
 
-function allocatePayment(inv, amount, date, note) {
-  const remainingProfit = Math.round(unpaid(inv));
-  let rest = Math.round(Number(amount) || 0);
+function allocatePayment(inv, amount, date, note, mode = 'smart') {
+  const rest0 = Math.round(Number(amount) || 0);
   const txs = [];
-  if (rest <= 0) return txs;
+  if (rest0 <= 0) return txs;
+
+  const description = note || (mode === 'profit' ? 'پرداخت سود' : mode === 'principal' ? 'برداشت اصل سرمایه' : 'پرداخت هوشمند');
+  if (mode === 'profit') return [newTransaction(inv.id, 'profit_payment', rest0, date, description)];
+  if (mode === 'principal') return [newTransaction(inv.id, 'capital_withdrawal', rest0, date, description)];
+
+  const remainingProfit = Math.round(unpaid(inv));
+  let rest = rest0;
   const profitPart = Math.min(rest, remainingProfit);
   if (profitPart > 0) {
-    txs.push(newTransaction(inv.id, 'profit_payment', profitPart, date, note || 'پرداخت سود - تخصیص خودکار'));
+    txs.push(newTransaction(inv.id, 'profit_payment', profitPart, date, note || 'پرداخت سود - تخصیص هوشمند'));
     rest -= profitPart;
   }
   if (rest > 0) {
-    txs.push(newTransaction(inv.id, 'capital_withdrawal', rest, date, note ? `${note} - برداشت اصل سرمایه` : 'برداشت اصل سرمایه - تخصیص خودکار'));
+    txs.push(newTransaction(inv.id, 'capital_withdrawal', rest, date, note ? `${note} - برداشت اصل سرمایه` : 'برداشت اصل سرمایه - تخصیص هوشمند'));
   }
   return txs;
 }

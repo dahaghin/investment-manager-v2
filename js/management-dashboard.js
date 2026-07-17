@@ -6,7 +6,10 @@ function portfolioKpis() {
   const dueProfit = investors.reduce((s, i) => s + unpaid(i), 0);
   const activeCount = investors.filter(i => investorStatus(i) !== 'Settled').length;
   const overdueCount = investors.filter(i => investorStatus(i) === 'Overdue').length;
-  return { totalCap, totalProfitAll, paidProfit, dueProfit, activeCount, overdueCount };
+  const totalLiability = totalCap + dueProfit;
+  const todayJ = jToday();
+  const dueThisMonth = investors.reduce((s, i) => s + buildProfitSchedule(i, todayJ).filter(r => r.jDate.y === todayJ.y && r.jDate.m === todayJ.m).reduce((a, r) => a + Math.max(0, r.unpaidProfit), 0), 0);
+  return { totalCap, totalProfitAll, paidProfit, dueProfit, totalLiability, activeCount, overdueCount, dueThisMonth };
 }
 
 function renderManagementDashboard() {
@@ -31,13 +34,15 @@ function renderManagementDashboard() {
       ${dashboardKpi('سرمایه فعال', formatMoney(k.totalCap), 'gold', 'مجموع اصل سرمایه در جریان')}
       ${dashboardKpi('سود انباشته', formatMoney(k.totalProfitAll), 'blue', 'کل سود محاسبه‌شده')}
       ${dashboardKpi('سود پرداخت‌شده', formatMoney(k.paidProfit), 'green', 'پرداخت‌های تخصیص‌یافته به سود')}
-      ${dashboardKpi('مانده سود', formatMoney(k.dueProfit), 'red', 'اولویت پرداخت‌های بعدی')}
+      ${dashboardKpi('تعهد کل صندوق', formatMoney(k.totalLiability), 'red', 'سرمایه فعال + سود پرداخت‌نشده')}
       ${dashboardKpi('سرمایه‌گذاران فعال', toFarsi(k.activeCount), 'purple', `${toFarsi(k.overdueCount)} معوق`)}
+      ${dashboardKpi('سررسیدهای این ماه', formatMoney(k.dueThisMonth), 'blue', 'پرداخت‌های سود ماه جاری')}
     </div>
     <div class="dashboard-grid">
       <div class="dash-panel"><div class="chart-title">توزیع سرمایه سرمایه‌گذاران</div>${renderCapitalPie()}</div>
       <div class="dash-panel"><div class="chart-title">سرمایه فعال هر سرمایه‌گذار</div>${renderActiveCapitalBars()}</div>
       <div class="dash-panel wide"><div class="chart-title">روند ۱۲ ماهه سرمایه، سود انباشته و سود پرداختی</div>${renderTwelveMonthTrend()}</div>
+      <div class="dash-panel"><div class="chart-title">پرداخت سود ماهانه</div>${renderMonthlyPaidProfitChart()}</div>
       <div class="dash-panel"><div class="chart-title">هشدارها</div>${renderAlerts()}</div>
       <div class="dash-panel"><div class="chart-title">آخرین رویدادهای سرمایه‌گذاران</div>${renderTimeline()}</div>
     </div>`;
@@ -80,4 +85,16 @@ function renderTimeline(invId) {
   const source = invId ? investors.filter(i=>i.id===invId) : investors;
   const events = source.flatMap(investorTimelineEvents).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
   return events.length ? `<div class="timeline">${events.map(e=>`<div class="tl-item"><b>${milToJalali(e.date)}</b><span>${e.text}</span></div>`).join('')}</div>` : '<div class="empty-mini">رویدادی ثبت نشده است</div>';
+}
+
+function renderMonthlyPaidProfitChart() {
+  const now = jToday();
+  const months = Array.from({length:12},(_,n)=>jAddMonths(now, n-11));
+  const rows = months.map(j => {
+    const start = jalaliObjToGreg(j.y, j.m, 1);
+    const end = jalaliObjToGreg(j.y, j.m, jdpMonthLen(j.y, j.m));
+    return { label: monthKeyFromJ(j), paid: investors.reduce((s,i)=>s+getInvestorTransactions(i).filter(t=>t.type==='profit_payment' && t.date>=start && t.date<=end).reduce((a,t)=>a+Number(t.amount),0),0) };
+  });
+  const max = Math.max(...rows.map(r=>r.paid), 1);
+  return `<div class="monthly-chart">${rows.map(r=>`<div class="month-col"><div class="month-bar" style="height:${Math.max(6, r.paid/max*120)}px"></div><span>${toFarsi(r.label.split('/')[1])}</span><em>${formatMoney(r.paid)}</em></div>`).join('')}</div>`;
 }

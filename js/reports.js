@@ -238,17 +238,26 @@ function renderProfitScheduleRows(inv) {
 }
 
 async function quickPayProfit(invId, label, amount, gregDate) {
-  if (!confirm(`ثبت پرداخت سود:\n${label}\nمبلغ: ${Math.round(amount).toLocaleString('fa-IR')} تومان`)) return;
-  const inv = investors.find(i => i.id === invId);
-  const tx = newTransaction(invId, 'profit_payment', Math.round(amount), gregDate, label);
-  const payments = [...(inv.payments || []), { id: tx.id, amount: tx.amount, date: tx.date, note: label, createdAt: tx.createdAt }];
-  const transactions = [...getInvestorTransactions(inv), tx];
-  await saveInvestorDB({ ...inv, payments, transactions }, invId);
-  selectedId = invId;
-  renderDetail();
-  updateStats();
-  toast('✅ پرداخت سود ثبت شد');
+  if (!confirm(`ثبت پرداخت سود:
+${label}
+مبلغ: ${Math.round(amount).toLocaleString('fa-IR')} تومان`)) return;
+  try {
+    const tx = newTransaction(invId, 'profit_payment', Math.round(amount), gregDate, label);
+    await saveTransactionDB(tx);
+    await loadInvestors();
+    selectedId = invId;
+    renderList();
+    renderDetail();
+    updateStats();
+    if (document.getElementById('tab-dashboard')?.classList.contains('active')) renderManagementDashboard();
+    if (document.getElementById('tab-report')?.classList.contains('active')) renderReport();
+    toast('✅ پرداخت سود ثبت شد');
+  } catch (e) {
+    console.error(e);
+    toast('❌ خطا در ثبت پرداخت سود: ' + e.message, true);
+  }
 }
+
 
 
 // ===== Report =====
@@ -264,6 +273,8 @@ function renderReport() {
   const totalTp = investors.reduce((s,i) => s+totalProfit(i), 0);
   const totalPaidAll = investors.reduce((s,i) => s+totalPaid(i), 0);
   const totalDue = investors.reduce((s,i) => s+unpaid(i), 0);
+  const totalWithdrawals = investors.reduce((s,i) => s+capitalWithdrawn(i), 0);
+  const totalDeposits = investors.reduce((s,i) => s+getInvestorTransactions(i).filter(t => t.type === 'capital_deposit').reduce((a,t)=>a+Number(t.amount),0), 0);
   const settled = investors.filter(i => unpaid(i) === 0).length;
 
   // capital bars
@@ -288,20 +299,26 @@ function renderReport() {
 
   // summary table
   const tRows = investors.map((inv, idx) => {
+    const txs = getInvestorTransactions(inv);
     const mp = monthlyProfit(inv);
     const tp = totalProfit(inv);
     const paid = totalPaid(inv);
     const due = unpaid(inv);
-    const months = buildProfitSchedule(inv).length;
+    const deposits = txs.filter(t => t.type === 'capital_deposit').reduce((a,t)=>a+Number(t.amount),0);
+    const withdrawals = capitalWithdrawn(inv);
+    const lastPayment = [...txs].filter(t => t.type === 'profit_payment').sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const nextDate = nextProfitDate(inv);
     return `<tr>
       <td>${toFarsi(idx+1)}</td>
       <td>${inv.name}</td>
       <td>${formatMoney(activeCapital(inv))}</td>
-      <td>${toFarsi(inv.rate)}٪</td>
-      <td>${formatMoney(mp)}</td>
-      <td>${toFarsi(months)} ماه</td>
-      <td>${formatMoney(tp)}</td>
+      <td>${formatMoney(Math.round(tp))}</td>
       <td>${formatMoney(paid)}</td>
+      <td>${formatMoney(withdrawals)}</td>
+      <td>${formatMoney(deposits)}</td>
+      <td>${formatMoney(Math.round(currentBalance(inv)))}</td>
+      <td>${lastPayment ? milToJalali(lastPayment.date) : '—'}</td>
+      <td>${nextDate ? milToJalali(nextDate) : '—'}</td>
       <td>${due > 0 ? `<span class="badge b-red">${formatMoney(due)}</span>` : `<span class="badge b-green">تسویه</span>`}</td>
     </tr>`;}).join('');
 
@@ -315,6 +332,9 @@ function renderReport() {
       <div class="ic"><div class="ic-label">کل پرداخت شده</div><div class="ic-val green">${formatMoney(totalPaidAll)}</div><div class="ic-sub">تومان</div></div>
       <div class="ic"><div class="ic-label">کل پرداخت نشده</div><div class="ic-val red">${formatMoney(totalDue)}</div><div class="ic-sub">تومان</div></div>
       <div class="ic"><div class="ic-label">وضعیت تسویه</div><div class="ic-val" style="font-size:14px;margin-top:6px"><span class="badge b-green">${toFarsi(settled)} تسویه</span> <span class="badge b-red">${toFarsi(investors.length-settled)} بدهکار</span></div></div>
+      <div class="ic"><div class="ic-label">کل برداشت سرمایه</div><div class="ic-val red">${formatMoney(totalWithdrawals)}</div><div class="ic-sub">Fund Withdrawals</div></div>
+      <div class="ic"><div class="ic-label">کل واریز سرمایه</div><div class="ic-val green">${formatMoney(totalDeposits)}</div><div class="ic-sub">Fund Deposits</div></div>
+      <div class="ic"><div class="ic-label">تعداد سرمایه‌گذاران</div><div class="ic-val blue">${toFarsi(investors.length)}</div><div class="ic-sub">Investors</div></div>
     </div>
 
     <div class="report-section">
@@ -334,7 +354,7 @@ function renderReport() {
     <div class="report-section">
       <div class="sec-title"><span>جدول کامل</span></div>
       <div class="table-wrap"><table>
-        <thead><tr><th>#</th><th>نام</th><th>سرمایه</th><th>نرخ</th><th>سود ماهیانه</th><th>مدت</th><th>کل سود</th><th>پرداختی</th><th>مانده</th></tr></thead>
+        <thead><tr><th>#</th><th>نام</th><th>Principal</th><th>Accumulated Profit</th><th>Paid Profit</th><th>Capital Withdrawals</th><th>Capital Deposits</th><th>Current Balance</th><th>Last Payment</th><th>Next Due Date</th><th>مانده سود</th></tr></thead>
         <tbody>${tRows}</tbody>
       </table></div>
     </div>`;
