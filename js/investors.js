@@ -80,14 +80,14 @@ async function savePayment() {
   if (!date || date.length < 8) { toast('فرمت تاریخ اشتباه است. مثال: 1403/01/01', true); return; }
   try {
     const inv = investors.find(i => i.id === payInvId);
-    const tx = newTransaction(payInvId, 'profit_payment', amount, date, note || 'پرداخت سود');
-    await saveTransactionDB(tx);
+    const allocation = allocatePayment(inv, amount, date, note);
+    for (const tx of allocation) await saveTransactionDB(tx);
     await loadInvestors();
     closeModal('payModal');
     selectedId = payInvId;
     renderDetail();
     updateStats();
-    toast('✅ پرداخت ثبت شد');
+    toast('✅ پرداخت با تخصیص هوشمند ثبت شد');
   } catch(e) {
     toast('❌ خطا: ' + (e.code === 'permission-denied' ? 'دسترسی رد شد — Firestore Rules را درست کنید' : e.message), true);
   }

@@ -23,6 +23,7 @@ function updateStats() {
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+  if (tab === 'dashboard') renderManagementDashboard();
   if (tab === 'report')   renderReport();
   if (tab === 'personal') renderPersonal();
   if (tab === 'cheques')  renderCheques();
@@ -76,6 +77,7 @@ function renderDetail() {
   const nextDate = nextProfitDate(inv);
 
   const payments = inv.payments || [];
+  const timelineHTML = renderTimeline(inv.id);
   const pRows = payments.length === 0
     ? `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">پرداختی ثبت نشده</td></tr>`
     : [...payments].reverse().map((p,i) => `
@@ -127,6 +129,11 @@ function renderDetail() {
         <thead><tr><th>#</th><th>مبلغ</th><th>تاریخ</th><th>توضیحات</th><th>عملیات</th></tr></thead>
         <tbody>${pRows}</tbody>
       </table></div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title"><span>تایم‌لاین سرمایه‌گذار</span><span>آخرین رویدادها</span></div>
+      ${timelineHTML}
     </div>
 
     <div class="section">

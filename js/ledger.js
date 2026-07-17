@@ -123,3 +123,19 @@ function totalProfit(inv) { return buildProfitSchedule(inv).reduce((s, r) => s +
 function unpaid(inv) { return Math.max(0, totalProfit(inv) - totalPaid(inv)); }
 function nextProfitDate(inv) { if (isSettled(inv) || !inv.startDate) return ''; const s = buildProfitSchedule(inv); const base = s.length ? gregStrToJalali(s[s.length - 1].gregDate) : gregStrToJalali(inv.startDate); return jalaliObjToGreg(...Object.values(jAddMonths(base, 1))); }
 function investorStatus(inv) { if (isSettled(inv) || activeCapital(inv) <= 0) return 'Settled'; const due = unpaid(inv); if (due <= 0) return 'Active'; const next = nextProfitDate(inv); if (next && next < todayGregorian()) return 'Overdue'; return 'Pending Payment'; }
+
+function allocatePayment(inv, amount, date, note) {
+  const remainingProfit = Math.round(unpaid(inv));
+  let rest = Math.round(Number(amount) || 0);
+  const txs = [];
+  if (rest <= 0) return txs;
+  const profitPart = Math.min(rest, remainingProfit);
+  if (profitPart > 0) {
+    txs.push(newTransaction(inv.id, 'profit_payment', profitPart, date, note || 'پرداخت سود - تخصیص خودکار'));
+    rest -= profitPart;
+  }
+  if (rest > 0) {
+    txs.push(newTransaction(inv.id, 'capital_withdrawal', rest, date, note ? `${note} - برداشت اصل سرمایه` : 'برداشت اصل سرمایه - تخصیص خودکار'));
+  }
+  return txs;
+}
