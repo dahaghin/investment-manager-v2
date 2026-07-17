@@ -68,6 +68,7 @@ function openPayModal(id) {
   document.getElementById('p_amount').value = Math.round(monthlyProfit(inv));
   document.getElementById('p_date').value = todayJalali();
   document.getElementById('p_note').value = '';
+  document.getElementById('p_mode').value = 'smart';
   document.getElementById('payModal').classList.add('show');
 }
 
@@ -75,19 +76,21 @@ async function savePayment() {
   const amount = Number(document.getElementById('p_amount').value);
   const dateJalali = document.getElementById('p_date').value.trim();
   const note = document.getElementById('p_note').value.trim();
+  const mode = document.getElementById('p_mode').value || 'smart';
   if (!amount || !dateJalali) { toast('مبلغ و تاریخ الزامی است', true); return; }
   const date = jalaliInputToGregorian(dateJalali);
   if (!date || date.length < 8) { toast('فرمت تاریخ اشتباه است. مثال: 1403/01/01', true); return; }
   try {
     const inv = investors.find(i => i.id === payInvId);
-    const allocation = allocatePayment(inv, amount, date, note);
+    const allocation = allocatePayment(inv, amount, date, note, mode);
+    if (!allocation.length) throw new Error('هیچ تراکنشی برای این پرداخت ساخته نشد');
     for (const tx of allocation) await saveTransactionDB(tx);
     await loadInvestors();
     closeModal('payModal');
     selectedId = payInvId;
     renderDetail();
     updateStats();
-    toast('✅ پرداخت با تخصیص هوشمند ثبت شد');
+    toast(mode === 'smart' ? '✅ پرداخت با تخصیص هوشمند ثبت شد' : '✅ پرداخت در دفتر کل ثبت شد');
   } catch(e) {
     toast('❌ خطا: ' + (e.code === 'permission-denied' ? 'دسترسی رد شد — Firestore Rules را درست کنید' : e.message), true);
   }
