@@ -103,8 +103,8 @@ function investorFromDoc(doc, tx = []) {
 
 async function loadInvestors() {
   const [invSnap, txSnap, chqSnap] = await Promise.all([
-    ownedCol(V2_COLLECTIONS.investors).get(),
-    ownedCol(V2_COLLECTIONS.transactions).get(),
+    ownedCol(V2_COLLECTIONS.investors).orderBy('createdAt').get(),
+    ownedCol(V2_COLLECTIONS.transactions).orderBy('date').get(),
     chqCol().orderBy('createdAt', 'desc').get()
   ]);
   const txByInvestor = new Map();
@@ -122,6 +122,11 @@ async function loadInvestors() {
   updateStats();
   if (investors.length > 0 && !selectedId) selectedId = investors[0].id;
   if (selectedId) { renderList(); renderDetail(); }
+  if (typeof isMobileLayout === 'function' && isMobileLayout() && !document.body.dataset.mobileInitialTab) {
+    document.body.dataset.mobileInitialTab = 'true';
+    switchTab('dashboard');
+  }
+  if (typeof applyMobileEnhancements === 'function') applyMobileEnhancements();
 }
 
 async function saveInvestorDB(data, id) {
