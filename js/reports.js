@@ -358,4 +358,5 @@ function renderReport() {
         <tbody>${tRows}</tbody>
       </table></div>
     </div>`;
+  if (typeof makeReportSectionsCollapsible === 'function') makeReportSectionsCollapsible(el);
 }

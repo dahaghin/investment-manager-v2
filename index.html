@@ -2,7 +2,13 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Investment Manager">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icon.svg">
 <title>مدیریت سرمایه‌گذاران</title>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -130,6 +136,14 @@
       </div>
     </div>
   </div>
+
+  <nav class="mobile-bottom-nav" aria-label="ناوبری موبایل">
+    <button class="mobile-nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')"><span>🏠</span><b>Home</b></button>
+    <button class="mobile-nav-item" data-tab="investors" onclick="switchTab('investors')"><span>👥</span><b>Investors</b></button>
+    <button class="mobile-nav-item" data-tab="cheques" onclick="switchTab('cheques')"><span>💳</span><b>Transactions</b></button>
+    <button class="mobile-nav-item" data-tab="report" onclick="switchTab('report')"><span>📊</span><b>Reports</b></button>
+    <button class="mobile-nav-item" data-tab="personal" onclick="switchTab('personal')"><span>⚙️</span><b>Settings</b></button>
+  </nav>
 </div>
 
 <!-- Add/Edit Modal -->
@@ -265,6 +279,7 @@
 <script src="js/reports.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/investors.js"></script>
+<script src="js/mobile.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
