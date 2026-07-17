@@ -13,10 +13,10 @@ function openEditModal(id) {
   editId = id;
   const inv = investors.find(i => i.id === id);
   document.getElementById('invModalTitle').textContent = 'ویرایش اطلاعات';
-  document.getElementById('f_name').value = inv.name;
+  document.getElementById('f_name').value = inv.fullName || inv.name;
   document.getElementById('f_phone').value = inv.phone || '';
   document.getElementById('f_capital').value = inv.capital;
-  document.getElementById('f_rate').value = inv.rate;
+  document.getElementById('f_rate').value = inv.monthlyInterestRate ?? inv.rate;
   document.getElementById('f_start').value = gregorianToJalaliStr(inv.startDate);
   document.getElementById('f_notes').value = inv.notes || '';
   document.getElementById('invModal').classList.add('show');
@@ -37,13 +37,19 @@ async function saveInvestor() {
   try {
     if (editId) {
       const inv = investors.find(i => i.id === editId);
-      await saveInvestorDB({ ...inv, name, phone, capital, rate, startDate, notes, transactions: getInvestorTransactions(inv) }, editId);
+      const currentTransactions = getInvestorTransactions(inv);
+      const initialDeposit = currentTransactions.find(t => t.type === 'capital_deposit');
+      await saveInvestorDB({ ...inv, fullName: name, name, phone, monthlyInterestRate: rate, rate, startDate, notes }, editId);
+      if (initialDeposit && (Number(initialDeposit.amount) !== capital || initialDeposit.date !== startDate)) {
+        await saveTransactionDB({ ...initialDeposit, amount: capital, date: startDate, description: initialDeposit.description || 'سرمایه اولیه' });
+        await loadInvestors();
+      }
       closeModal('invModal');
       if (selectedId) renderDetail();
       updateStats();
     } else {
       const tmpId = `pending-${Date.now()}`;
-      await saveInvestorDB({ name, phone, capital, rate, startDate, notes, payments: [], transactions: [newTransaction(tmpId, 'capital_deposit', capital, startDate, 'سرمایه اولیه')] }, null);
+      await saveInvestorDB({ fullName: name, name, phone, capital, monthlyInterestRate: rate, rate, startDate, notes, status: 'Active', transactions: [newTransaction(tmpId, 'capital_deposit', capital, startDate, 'سرمایه اولیه')] }, null);
       closeModal('invModal');
       updateStats();
     }
@@ -62,6 +68,7 @@ function openPayModal(id) {
   document.getElementById('p_amount').value = Math.round(monthlyProfit(inv));
   document.getElementById('p_date').value = todayJalali();
   document.getElementById('p_note').value = '';
+  document.getElementById('p_mode').value = 'smart';
   document.getElementById('payModal').classList.add('show');
 }
 
@@ -69,20 +76,21 @@ async function savePayment() {
   const amount = Number(document.getElementById('p_amount').value);
   const dateJalali = document.getElementById('p_date').value.trim();
   const note = document.getElementById('p_note').value.trim();
+  const mode = document.getElementById('p_mode').value || 'smart';
   if (!amount || !dateJalali) { toast('مبلغ و تاریخ الزامی است', true); return; }
   const date = jalaliInputToGregorian(dateJalali);
   if (!date || date.length < 8) { toast('فرمت تاریخ اشتباه است. مثال: 1403/01/01', true); return; }
   try {
     const inv = investors.find(i => i.id === payInvId);
-    const tx = newTransaction(payInvId, 'profit_payment', amount, date, note || 'پرداخت سود');
-    const payments = [...(inv.payments || []), { id: tx.id, amount, date, note, createdAt: tx.createdAt }];
-    const transactions = [...getInvestorTransactions(inv), tx];
-    await saveInvestorDB({ ...inv, payments, transactions }, payInvId);
+    const allocation = allocatePayment(inv, amount, date, note, mode);
+    if (!allocation.length) throw new Error('هیچ تراکنشی برای این پرداخت ساخته نشد');
+    for (const tx of allocation) await saveTransactionDB(tx);
+    await loadInvestors();
     closeModal('payModal');
     selectedId = payInvId;
     renderDetail();
     updateStats();
-    toast('✅ پرداخت ثبت شد');
+    toast(mode === 'smart' ? '✅ پرداخت با تخصیص هوشمند ثبت شد' : '✅ پرداخت در دفتر کل ثبت شد');
   } catch(e) {
     toast('❌ خطا: ' + (e.code === 'permission-denied' ? 'دسترسی رد شد — Firestore Rules را درست کنید' : e.message), true);
   }
@@ -91,12 +99,42 @@ async function savePayment() {
 async function deletePayment(invId, payId) {
   if (!confirm('این پرداخت حذف شود؟')) return;
   const inv = investors.find(i => i.id === invId);
-  const payments = inv.payments.filter(p => p.id !== payId);
-  const transactions = getInvestorTransactions(inv).filter(t => t.id !== payId);
-  await saveInvestorDB({ ...inv, payments, transactions }, invId);
+  await deleteTransactionDB(payId);
+  await loadInvestors();
   renderDetail();
   updateStats();
   toast('پرداخت حذف شد');
+}
+
+// ===== General Transactions =====
+function openTransactionModal(id, type) {
+  payInvId = id;
+  document.getElementById('tx_type').value = type || 'capital_deposit';
+  document.getElementById('tx_amount').value = '';
+  document.getElementById('tx_date').value = todayJalali();
+  document.getElementById('tx_note').value = '';
+  document.getElementById('txModal').classList.add('show');
+}
+
+async function saveLedgerTransaction() {
+  const type = document.getElementById('tx_type').value;
+  const amount = Number(document.getElementById('tx_amount').value);
+  const dateJalali = document.getElementById('tx_date').value.trim();
+  const note = document.getElementById('tx_note').value.trim();
+  if (!LEDGER_TYPES.includes(type) || !amount || !dateJalali) { toast('نوع، مبلغ و تاریخ تراکنش الزامی است', true); return; }
+  const date = jalaliInputToGregorian(dateJalali);
+  if (!date || date.length < 8) { toast('فرمت تاریخ اشتباه است. مثال: 1403/01/01', true); return; }
+  try {
+    await saveTransactionDB(newTransaction(payInvId, type, amount, date, note || transactionTypeLabel(type)));
+    await loadInvestors();
+    closeModal('txModal');
+    selectedId = payInvId;
+    renderDetail();
+    updateStats();
+    toast('✅ تراکنش ثبت شد');
+  } catch(e) {
+    toast('❌ خطا: ' + e.message, true);
+  }
 }
 
 async function confirmDelete(id) {

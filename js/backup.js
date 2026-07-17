@@ -173,3 +173,63 @@ async function deleteCheque(id) {
   renderCheques();
   toast('چک حذف شد');
 }
+
+// ===== Backup / Restore =====
+function buildBackupPayload() {
+  return {
+    version: 'v2-beta2',
+    exportedAt: new Date().toISOString(),
+    investors: investors.map(i => ({ ...i, transactions: getInvestorTransactions(i) })),
+    cheques
+  };
+}
+
+async function createBackup() {
+  const payload = buildBackupPayload();
+  try {
+    await backupsCol().add({ ownerId: auth.currentUser.uid, ...payload });
+  } catch (e) {
+    console.warn('Firestore backup skipped:', e.message);
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `investment-manager-${todayGregorian()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('✅ فایل پشتیبان آماده شد');
+}
+
+async function restoreBackupFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const payload = JSON.parse(text);
+  if (!confirm('بازیابی، داده‌های فعلی را با داده‌های فایل ادغام می‌کند. ادامه می‌دهید؟')) return;
+  for (const inv of payload.investors || []) {
+    const id = inv.id || undefined;
+    await saveInvestorDB(inv, id);
+    for (const tx of inv.transactions || []) await saveTransactionDB({ ...tx, investorId: id || inv.id });
+  }
+  for (const c of payload.cheques || []) {
+    const ref = c.id ? chqCol().doc(c.id) : chqCol().doc();
+    await ref.set({ ...c, id: ref.id, ownerId: auth.currentUser.uid }, { merge: true });
+  }
+  await loadInvestors();
+  renderManagementDashboard();
+  toast('✅ بازیابی انجام شد');
+}
+
+function exportPortfolioCSV() {
+  const header = ['name','activeCapital','monthlyRate','accumulatedProfit','paidProfit','unpaidProfit','status'];
+  const rows = investors.map(i => [i.name, activeCapital(i), i.rate, Math.round(totalProfit(i)), totalPaid(i), Math.round(unpaid(i)), investorStatus(i)]);
+  const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `portfolio-report-${todayGregorian()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
