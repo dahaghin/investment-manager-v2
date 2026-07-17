@@ -1,0 +1,21 @@
+:root {
+  --bg: #0a0d12;
+  --surface: #12171f;
+  --surface2: #181e28;
+  --surface3: #1e2533;
+  --border: #252d3d;
+  --gold: #c9954a;
+  --gold-light: #e8b870;
+  --gold-glow: rgba(201,149,74,0.15);
+  --text: #dce6f0;
+  --text-muted: #6b7a8d;
+  --green: #3ecf6a;
+  --red: #f05c5c;
+  --blue: #4da6ff;
+  --purple: #a78bfa;
+  --radius: 14px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: 'Vazirmatn', sans-serif; background: var(--bg); color: var(--text); direction: rtl; overflow: hidden; }
