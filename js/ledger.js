@@ -1,9 +1,61 @@
 // ===== Transaction Ledger & Calculations =====
 const J_MONTHS = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 const LEDGER_TYPES = ['capital_deposit','capital_withdrawal','profit_payment','compound_profit','settlement','adjustment'];
+const LEDGER_TYPE_LABELS = {
+  capital_deposit: 'واریز سرمایه',
+  capital_withdrawal: 'برداشت سرمایه',
+  profit_payment: 'پرداخت سود',
+  compound_profit: 'سود مرکب',
+  settlement: 'تسویه',
+  adjustment: 'اصلاحیه'
+};
+function transactionTypeLabel(type) { return LEDGER_TYPE_LABELS[type] || type; }
+
+function isoNow() { return new Date().toISOString(); }
+function normalizeCreatedAt(value) {
+  if (!value) return isoNow();
+  if (typeof value === 'string') return value;
+  if (value.toDate) return value.toDate().toISOString();
+  return String(value);
+}
+function normalizeInvestorForDB(data, id) {
+  return {
+    id,
+    ownerId: auth.currentUser.uid,
+    fullName: data.fullName || data.name || '',
+    phone: data.phone || '',
+    monthlyInterestRate: Number(data.monthlyInterestRate ?? data.rate ?? 0),
+    status: data.status || investorStatus({ ...data, id }),
+    startDate: normalizeISODate(data.startDate),
+    notes: data.notes || '',
+    createdAt: normalizeCreatedAt(data.createdAt),
+    updatedAt: isoNow()
+  };
+}
+function normalizeTransactionForDB(tx) {
+  const type = LEDGER_TYPES.includes(tx.type) ? tx.type : 'adjustment';
+  return {
+    id: tx.id,
+    ownerId: auth.currentUser.uid,
+    investorId: tx.investorId,
+    type,
+    amount: Math.round(Number(tx.amount) || 0),
+    date: normalizeISODate(tx.date),
+    description: tx.description || tx.note || '',
+    createdAt: normalizeCreatedAt(tx.createdAt)
+  };
+}
 
 function newTransaction(investorId, type, amount, date, description) {
-  return { id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, investorId, type, amount: Math.round(Number(amount) || 0), date, description: description || '', createdAt: new Date().toISOString() };
+  return normalizeTransactionForDB({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+    investorId,
+    type,
+    amount,
+    date,
+    description,
+    createdAt: isoNow()
+  });
 }
 function normalizeISODate(dateStr) { return dateStr ? String(dateStr).slice(0, 10) : todayGregorian(); }
 function gregStrToJalali(dateStr) { if (!dateStr) return null; const p = normalizeISODate(dateStr).split('-'); return gregorianToJalali(+p[0], +p[1], +p[2]); }
@@ -40,7 +92,7 @@ function buildProfitSchedule(inv, untilJ) {
   if (!inv.startDate || isSettled(inv)) return [];
   const startJ = gregStrToJalali(inv.startDate);
   const todayJ = untilJ || jToday();
-  const rate = Number(inv.rate) / 100;
+  const rate = Number(inv.monthlyInterestRate ?? inv.rate) / 100;
   const tx = getInvestorTransactions(inv);
   let capital = ledgerCapitalBefore(inv, inv.startDate);
   let unpaidProfit = 0;
@@ -53,6 +105,7 @@ function buildProfitSchedule(inv, untilJ) {
       if (t.type === 'capital_deposit' || t.type === 'adjustment') capital += Number(t.amount);
       if (t.type === 'capital_withdrawal') capital = Math.max(0, capital - Number(t.amount));
       if (t.type === 'profit_payment') unpaidProfit = Math.max(0, unpaidProfit - Number(t.amount));
+      if (t.type === 'compound_profit') unpaidProfit += Number(t.amount);
       if (t.type === 'settlement') return rows;
     }
     const basis = capital + unpaidProfit;
@@ -65,7 +118,7 @@ function buildProfitSchedule(inv, untilJ) {
   return rows;
 }
 function currentBalance(inv) { const s = buildProfitSchedule(inv); return s.length ? s[s.length - 1].balanceAfter : activeCapital(inv); }
-function monthlyProfit(inv) { return isSettled(inv) ? 0 : currentBalance(inv) * (Number(inv.rate) / 100); }
+function monthlyProfit(inv) { return isSettled(inv) ? 0 : currentBalance(inv) * (Number(inv.monthlyInterestRate ?? inv.rate) / 100); }
 function totalProfit(inv) { return buildProfitSchedule(inv).reduce((s, r) => s + r.amount, 0); }
 function unpaid(inv) { return Math.max(0, totalProfit(inv) - totalPaid(inv)); }
 function nextProfitDate(inv) { if (isSettled(inv) || !inv.startDate) return ''; const s = buildProfitSchedule(inv); const base = s.length ? gregStrToJalali(s[s.length - 1].gregDate) : gregStrToJalali(inv.startDate); return jalaliObjToGreg(...Object.values(jAddMonths(base, 1))); }

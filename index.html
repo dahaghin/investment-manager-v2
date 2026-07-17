@@ -175,6 +175,39 @@
   </div>
 </div>
 
+<!-- Transaction Modal -->
+<div class="overlay" id="txModal">
+  <div class="modal">
+    <div class="modal-title">ثبت تراکنش دفتر کل</div>
+    <div class="frow">
+      <div class="fg">
+        <label class="fl">نوع تراکنش *</label>
+        <select class="fi" id="tx_type">
+          <option value="capital_deposit">واریز سرمایه</option>
+          <option value="capital_withdrawal">برداشت سرمایه</option>
+          <option value="profit_payment">پرداخت سود</option>
+          <option value="compound_profit">سود مرکب</option>
+          <option value="settlement">تسویه</option>
+          <option value="adjustment">اصلاحیه</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">مبلغ (تومان) *</label><input class="fi" id="tx_amount" type="number"></div>
+    </div>
+    <div class="fg">
+      <label class="fl">تاریخ شمسی *</label>
+      <div class="jdp-wrap">
+        <input class="fi jdp-input" id="tx_date" placeholder="انتخاب تاریخ" readonly onclick="jdpOpen('tx_date','jdp_txdate')">
+        <div class="jdp-popup" id="jdp_txdate"></div>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">توضیحات</label><input class="fi" id="tx_note" placeholder="اختیاری"></div>
+    <div class="m-actions">
+      <button class="btn btn-secondary" onclick="closeModal('txModal')">انصراف</button>
+      <button class="btn btn-gold" onclick="saveLedgerTransaction()">ثبت تراکنش</button>
+    </div>
+  </div>
+</div>
+
 <!-- Cheque Modal -->
 <div class="overlay" id="chequeModal">
   <div class="modal">

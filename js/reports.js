@@ -49,10 +49,14 @@ function renderPersonal() {
 
 function parseJalaliInput(str) {
   if (!str) return null;
-  const parts = str.replace(/-/g,'/').split('/');
+  const clean = String(str)
+    .trim()
+    .replace(/[۰-۹]/g, ch => '۰۱۲۳۴۵۶۷۸۹'.indexOf(ch))
+    .replace(/[٠-٩]/g, ch => '٠١٢٣٤٥٦٧٨٩'.indexOf(ch));
+  const parts = clean.replace(/-/g,'/').split('/');
   if (parts.length !== 3) return null;
-  const y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
-  if (!y || !m || !d) return null;
+  const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+  if (!y || !m || !d || m < 1 || m > 12 || d < 1 || d > jdpMonthLen(y, m)) return null;
   return { y, m, d };
 }
 
