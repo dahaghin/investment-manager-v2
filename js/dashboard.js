@@ -99,6 +99,7 @@ function renderDetail() {
       <div class="dh-actions">
         <button class="btn btn-secondary" onclick="window.print()">🖨️ چاپ</button>
         <button class="btn btn-success" onclick="openPayModal('${inv.id}')">+ پرداخت</button>
+        <button class="btn btn-gold" onclick="openTransactionModal('${inv.id}')">+ تراکنش</button>
         <button class="btn btn-secondary" onclick="openEditModal('${inv.id}')">ویرایش</button>
         <button class="btn btn-danger" onclick="confirmDelete('${inv.id}')">حذف</button>
       </div>
@@ -126,5 +127,25 @@ function renderDetail() {
         <thead><tr><th>#</th><th>مبلغ</th><th>تاریخ</th><th>توضیحات</th><th>عملیات</th></tr></thead>
         <tbody>${pRows}</tbody>
       </table></div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title"><span>دفتر کل تراکنش‌ها</span><span>${toFarsi(getInvestorTransactions(inv).length)} تراکنش</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>نوع</th><th>مبلغ</th><th>تاریخ</th><th>توضیحات</th></tr></thead>
+        <tbody>${renderTransactionRows(inv)}</tbody>
+      </table></div>
     </div>`;
+}
+
+function renderTransactionRows(inv) {
+  const rows = getInvestorTransactions(inv);
+  if (!rows.length) return `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px">تراکنشی ثبت نشده</td></tr>`;
+  return [...rows].reverse().map(t => `
+    <tr>
+      <td>${transactionTypeLabel(t.type)}</td>
+      <td>${formatMoney(t.amount)} تومان</td>
+      <td>${milToJalali(t.date)}</td>
+      <td>${t.description || '—'}</td>
+    </tr>`).join('');
 }
