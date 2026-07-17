@@ -52,6 +52,7 @@
 
   <div class="tabs">
     <div class="tab active" data-tab="investors" onclick="switchTab('investors')">👥 سرمایه‌گذاران</div>
+    <div class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">📈 داشبورد مدیریت</div>
     <div class="tab" data-tab="cheques" onclick="switchTab('cheques')">🏦 چک‌ها</div>
     <div class="tab" data-tab="report" onclick="switchTab('report')">📊 گزارش کلی</div>
     <div class="tab" data-tab="personal" onclick="switchTab('personal')">🧾 گزارش فردی</div>
@@ -106,6 +107,11 @@
           <p>یک سرمایه‌گذار انتخاب کنید</p>
         </div>
         <div id="detailPanel" style="display:none"></div>
+      </div>
+
+      <!-- Dashboard tab -->
+      <div class="page" id="tab-dashboard">
+        <div id="dashboardContent"></div>
       </div>
 
       <!-- Cheques tab -->
@@ -254,6 +260,7 @@
 <script src="js/ledger.js"></script>
 <script src="js/compound-profit.js"></script>
 <script src="js/dashboard.js"></script>
+<script src="js/management-dashboard.js"></script>
 <script src="js/reports.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/investors.js"></script>

@@ -67,7 +67,7 @@ function chqCol() { return settingsCol().doc(auth.currentUser.uid).collection('c
 async function ensureV2Settings() {
   await settingsCol().doc(auth.currentUser.uid).set({
     ownerId: auth.currentUser.uid,
-    version: 'v2-beta1',
+    version: 'v2-beta2',
     collections: V2_COLLECTIONS,
     updatedAt: new Date().toISOString()
   }, { merge: true });
