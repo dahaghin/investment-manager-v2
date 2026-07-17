@@ -1,1 +1,1710 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مدیریت سرمایه‌گذاران</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --bg: #0a0d12;
+  --surface: #12171f;
+  --surface2: #181e28;
+  --surface3: #1e2533;
+  --border: #252d3d;
+  --gold: #c9954a;
+  --gold-light: #e8b870;
+  --gold-glow: rgba(201,149,74,0.15);
+  --text: #dce6f0;
+  --text-muted: #6b7a8d;
+  --green: #3ecf6a;
+  --red: #f05c5c;
+  --blue: #4da6ff;
+  --purple: #a78bfa;
+  --radius: 14px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: 'Vazirmatn', sans-serif; background: var(--bg); color: var(--text); direction: rtl; overflow: hidden; }
 
+/* ===== LOGIN ===== */
+#loginScreen {
+  position: fixed; inset: 0; z-index: 1000;
+  background: radial-gradient(ellipse at 30% 20%, #1a1200 0%, var(--bg) 60%);
+  display: flex; align-items: center; justify-content: center;
+}
+.login-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 48px 40px;
+  width: 380px;
+  box-shadow: var(--shadow), 0 0 60px rgba(201,149,74,0.08);
+  animation: fadeUp 0.4s ease;
+}
+@keyframes fadeUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+.login-logo { text-align: center; margin-bottom: 32px; }
+.login-logo .icon { font-size: 48px; margin-bottom: 12px; display: block; }
+.login-logo h1 { font-size: 20px; font-weight: 700; color: var(--gold-light); }
+.login-logo p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.login-err { background: #3a1515; border: 1px solid #5a2020; color: var(--red); border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px; display: none; }
+.login-err.show { display: block; }
+
+/* ===== APP SHELL ===== */
+#app { display: none; height: 100vh; flex-direction: column; }
+#app.show { display: flex; }
+
+/* Header */
+.header {
+  background: linear-gradient(90deg, #0f0900 0%, var(--surface) 40%, #000f05 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.header-left { display: flex; align-items: center; gap: 14px; }
+.header-logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--gold), #7a4a00); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.logo-title { font-size: 16px; font-weight: 700; color: var(--gold-light); }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.header-date { font-size: 12px; color: var(--text-muted); }
+.btn-logout { background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; padding: 6px 14px; font-family: 'Vazirmatn', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+/* Tabs */
+.tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.tab { padding: 14px 24px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; user-select: none; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--gold-light); border-bottom-color: var(--gold); }
+
+/* Stats */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  padding: 16px 28px; background: var(--surface); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.stat-card {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 18px; position: relative; overflow: hidden;
+}
+.stat-card::after { content: ''; position: absolute; top: 0; right: 0; width: 3px; height: 100%; border-radius: 0 var(--radius) var(--radius) 0; }
+.stat-card.s-gold::after { background: var(--gold); }
+.stat-card.s-green::after { background: var(--green); }
+.stat-card.s-blue::after { background: var(--blue); }
+.stat-card.s-red::after { background: var(--red); }
+.stat-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+.stat-val { font-size: 18px; font-weight: 700; }
+.stat-card.s-gold .stat-val { color: var(--gold-light); }
+.stat-card.s-green .stat-val { color: var(--green); }
+.stat-card.s-blue .stat-val { color: var(--blue); }
+.stat-card.s-red .stat-val { color: var(--red); }
+.stat-sub { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+
+/* Main area */
+.main-area { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar */
+.sidebar { width: 280px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+.sb-header { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.sb-header h2 { font-size: 14px; font-weight: 600; }
+.investor-list { overflow-y: auto; flex: 1; }
+.inv-item { padding: 13px 18px; border-bottom: 1px solid #1a2030; cursor: pointer; display: flex; align-items: center; gap: 11px; transition: background 0.15s; }
+.inv-item:hover { background: var(--surface2); }
+.inv-item.active { background: #15203a; border-right: 3px solid var(--gold); }
+.avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #3d2a00, var(--gold-dark, #7a4a00)); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: var(--gold-light); flex-shrink: 0; }
+.inv-info { flex: 1; min-width: 0; }
+.inv-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inv-amt { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.inv-badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; background: #1a2a1a; color: var(--green); border: 1px solid #2a4a2a; flex-shrink: 0; }
+
+/* Content */
+.content-area { flex: 1; overflow-y: auto; padding: 24px 28px; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* Empty state */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; color: var(--text-muted); gap: 12px; }
+.empty-state .ei { font-size: 56px; opacity: 0.25; }
+
+/* Detail */
+.detail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
+.dh-left { display: flex; align-items: center; gap: 14px; }
+.d-avatar { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #5a3000); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #000; }
+.d-name { font-size: 20px; font-weight: 700; }
+.d-phone { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.dh-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+@media (max-width: 700px) { .info-grid { grid-template-columns: 1fr 1fr; } .stats-bar { grid-template-columns: 1fr 1fr; } }
+.ic { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+.ic-label { font-size: 11px; color: var(--text-muted); margin-bottom: 7px; }
+.ic-val { font-size: 18px; font-weight: 700; }
+.ic-val.gold { color: var(--gold-light); }
+.ic-val.green { color: var(--green); }
+.ic-val.blue { color: var(--blue); }
+.ic-val.red { color: var(--red); }
+.ic-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+.section { margin-bottom: 24px; }
+.sec-title { font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+
+.table-wrap { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+table { width: 100%; border-collapse: collapse; }
+th { background: #1a2030; padding: 11px 14px; font-size: 11px; color: var(--text-muted); font-weight: 600; text-align: right; }
+td { padding: 11px 14px; font-size: 12px; border-top: 1px solid var(--border); }
+tr:hover td { background: #151d2a; }
+
+.badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+.b-green { background: #1a3a1a; color: var(--green); }
+.b-red { background: #3a1515; color: var(--red); }
+.b-yellow { background: #2a2000; color: var(--gold-light); }
+
+/* ===== REPORT PAGE ===== */
+.report-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+@media (max-width: 700px) { .report-grid { grid-template-columns: 1fr 1fr; } }
+.report-section { margin-bottom: 28px; }
+.report-title { font-size: 16px; font-weight: 700; margin-bottom: 18px; color: var(--gold-light); }
+
+/* Bar chart */
+.bar-chart { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.chart-title { font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 16px; }
+.bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.bar-label { font-size: 12px; color: var(--text); width: 110px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.bar-track { flex: 1; height: 10px; background: var(--surface3); border-radius: 10px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--gold-dark, #7a4a00), var(--gold-light)); transition: width 0.6s ease; }
+.bar-fill.green { background: linear-gradient(90deg, #1a5a1a, var(--green)); }
+.bar-fill.red { background: linear-gradient(90deg, #5a1a1a, var(--red)); }
+.bar-val { font-size: 11px; color: var(--text-muted); width: 80px; flex-shrink: 0; }
+
+/* ===== BUTTONS ===== */
+.btn { border-radius: 8px; padding: 8px 16px; font-family: 'Vazirmatn', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+.btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.btn-gold { background: linear-gradient(135deg, var(--gold), #7a4a00); color: #000; }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-danger { background: #3a1515; color: var(--red); border: 1px solid #5a2020; }
+.btn-success { background: #153a1a; color: var(--green); border: 1px solid #2a5a2a; }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+.btn-add { background: linear-gradient(135deg, var(--gold), #7a4a00); color: #000; border: none; border-radius: 8px; padding: 7px 14px; font-family: 'Vazirmatn', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+/* ===== MODAL ===== */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 500; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.overlay.show { opacity: 1; pointer-events: all; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 28px; width: 460px; max-width: 95vw; max-height: 90vh; overflow-y: auto; transform: translateY(16px); transition: transform 0.2s; }
+.overlay.show .modal { transform: translateY(0); }
+.modal-title { font-size: 17px; font-weight: 700; margin-bottom: 22px; }
+.fg { margin-bottom: 16px; }
+.fl { font-size: 12px; color: var(--text-muted); margin-bottom: 7px; display: block; }
+.fi { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 13px; color: var(--text); font-family: 'Vazirmatn', sans-serif; font-size: 13px; outline: none; transition: border-color 0.2s; }
+.fi:focus { border-color: var(--gold); }
+.frow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.m-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+
+/* ===== TOAST ===== */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(10px); background: #1a3a1a; border: 1px solid #2a5a2a; color: var(--green); padding: 11px 22px; border-radius: 10px; font-weight: 600; font-size: 13px; z-index: 900; opacity: 0; transition: all 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ===== LOADING ===== */
+.loader { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+/* ===== JALALI DATE PICKER ===== */
+.jdp-wrap { position: relative; display: inline-block; }
+.jdp-input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 13px; color: var(--text); font-family: 'Vazirmatn', sans-serif; font-size: 13px; outline: none; width: 150px; cursor: pointer; }
+.jdp-input:focus { border-color: var(--gold); }
+.jdp-popup { position: absolute; top: calc(100% + 6px); right: 0; z-index: 999; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); min-width: 260px; display: none; }
+.jdp-popup.open { display: block; }
+.jdp-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.jdp-nav button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.jdp-nav button:hover { border-color: var(--gold); color: var(--gold-light); }
+.jdp-title { font-size: 13px; font-weight: 700; color: var(--gold-light); cursor: pointer; }
+.jdp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.jdp-dow { font-size: 10px; color: var(--text-muted); text-align: center; padding: 4px 0; }
+.jdp-day { font-size: 12px; text-align: center; padding: 6px 2px; border-radius: 6px; cursor: pointer; color: var(--text); }
+.jdp-day:hover { background: var(--surface3); }
+.jdp-day.today { border: 1px solid var(--gold); color: var(--gold-light); }
+.jdp-day.selected { background: var(--gold); color: #000; font-weight: 700; }
+.jdp-day.empty { cursor: default; }
+.jdp-months { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+.jdp-month-btn { padding: 8px 4px; text-align: center; font-size: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--text); }
+.jdp-month-btn:hover, .jdp-month-btn.sel { background: var(--gold); color: #000; font-weight: 700; border-color: var(--gold); }
+.jdp-year-wrap { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.jdp-year-val { font-size: 18px; font-weight: 700; color: var(--gold-light); min-width: 60px; text-align: center; }
+
+/* ===== PERSONAL REPORT ===== */
+.pr-toolbar { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 22px; margin-bottom: 20px; display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.pr-toolbar .fg { margin: 0; }
+.pr-toolbar select, .pr-toolbar input[type=text] { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 13px; color: var(--text); font-family: 'Vazirmatn', sans-serif; font-size: 13px; outline: none; }
+.pr-toolbar select { min-width: 180px; }
+.pr-toolbar input[type=text] { width: 130px; }
+.pr-toolbar select:focus, .pr-toolbar input:focus { border-color: var(--gold); }
+.pr-toolbar label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 6px; }
+.ledger-table td.credit { color: var(--green); font-weight: 600; }
+.ledger-table td.debit  { color: var(--red);   font-weight: 600; }
+.ledger-table td.bal-pos { color: var(--red); font-weight: 700; }
+.ledger-table td.bal-neg { color: var(--green); font-weight: 700; }
+.ledger-table td.bal-zero{ color: var(--text-muted); }
+.ledger-table tr.row-profit { }
+.ledger-table tr.row-payment td { background: #0d1a0d; }
+.ledger-table tr.row-profit td  { background: #1a0d0d; }
+.pr-summary-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+@media(max-width:700px){ .pr-summary-strip{grid-template-columns:1fr 1fr;} .pr-toolbar{flex-direction:column;align-items:stretch;} }
+@media print {
+  .pr-toolbar, .pr-print-hide { display: none !important; }
+  .pr-print-header { display: block !important; }
+}
+.pr-print-header { display: none; text-align: center; font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+
+/* ===== CHEQUES ===== */
+.cheque-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px;
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr auto;
+  align-items: center; gap: 14px; transition: background 0.15s;
+}
+.cheque-card:hover { background: var(--surface3); }
+.cheque-card + .cheque-card { margin-top: 8px; }
+.chq-name { font-weight: 700; font-size: 14px; }
+.chq-bank { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+.chq-num  { font-size: 11px; color: var(--text-muted); }
+.chq-amount { font-size: 15px; font-weight: 700; color: var(--gold-light); }
+.chq-date  { font-size: 13px; font-weight: 600; }
+.chq-date.overdue  { color: var(--red); }
+.chq-date.soon     { color: var(--gold-light); }
+.chq-date.future   { color: var(--text); }
+.chq-date.cashed   { color: var(--text-muted); text-decoration: line-through; }
+.chq-actions { display: flex; gap: 6px; }
+.cheque-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+.chq-filter-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-family: 'Vazirmatn',sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.chq-filter-btn.active { background: var(--gold); color: #000; border-color: var(--gold); }
+.chq-alert-banner { background: #2a1500; border: 1px solid #5a3000; border-radius: 10px; padding: 12px 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.chq-alert-banner span { font-size: 12px; color: var(--gold-light); }
+@media (max-width:700px) { .cheque-card { grid-template-columns: 1fr 1fr; } }
+
+/* ===== PRINT ===== */
+@media print {
+  .sidebar, .tabs, .header, .stats-bar, .dh-actions, .btn, .btn-add { display: none !important; }
+  body { background: #fff; color: #000; }
+  .content-area { padding: 0; }
+  .ic, .table-wrap, .bar-chart { border: 1px solid #ccc; background: #fff; }
+  th { background: #f5f5f5; color: #333; }
+  td, .ic-val, .d-name { color: #000; }
+  .ic-label, .ic-sub, .d-phone, .sec-title { color: #555; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="icon">💰</span>
+      <h1>مدیریت سرمایه‌گذاران</h1>
+      <p>ورود به پنل مدیریت</p>
+    </div>
+    <div class="login-err" id="loginErr"></div>
+    <div class="fg">
+      <label class="fl">ایمیل</label>
+      <input class="fi" id="loginEmail" type="email" placeholder="email@example.com" autocomplete="email">
+    </div>
+    <div class="fg">
+      <label class="fl">رمز عبور</label>
+      <input class="fi" id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-gold" style="width:100%;padding:12px;font-size:14px;margin-top:8px" onclick="doLogin()" id="loginBtn">ورود</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo">
+        <div class="logo-icon">💰</div>
+        <span class="logo-title">مدیریت سرمایه‌گذاران</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="header-date" id="headerDate"></span>
+      <button class="btn-logout" onclick="doLogout()">خروج</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="investors" onclick="switchTab('investors')">👥 سرمایه‌گذاران</div>
+    <div class="tab" data-tab="cheques" onclick="switchTab('cheques')">🏦 چک‌ها</div>
+    <div class="tab" data-tab="report" onclick="switchTab('report')">📊 گزارش کلی</div>
+    <div class="tab" data-tab="personal" onclick="switchTab('personal')">🧾 گزارش فردی</div>
+  </div>
+
+  <div class="stats-bar" style="grid-template-columns: repeat(5,1fr)">
+    <div class="stat-card s-gold">
+      <div class="stat-label">کل سرمایه</div>
+      <div class="stat-val" id="stCapital">—</div>
+      <div class="stat-sub">تومان</div>
+    </div>
+    <div class="stat-card s-green">
+      <div class="stat-label">سود ماهیانه کل</div>
+      <div class="stat-val" id="stMonthly">—</div>
+      <div class="stat-sub">تومان / ماه</div>
+    </div>
+    <div class="stat-card s-blue">
+      <div class="stat-label">تعداد سرمایه‌گذاران</div>
+      <div class="stat-val" id="stCount">—</div>
+      <div class="stat-sub">نفر</div>
+    </div>
+    <div class="stat-card s-red">
+      <div class="stat-label">سود پرداخت نشده</div>
+      <div class="stat-val" id="stUnpaid">—</div>
+      <div class="stat-sub">تومان</div>
+    </div>
+    <div class="stat-card" style="--c:var(--purple)" onclick="switchTab('cheques')" class="stat-card" style="cursor:pointer">
+      <div class="stat-label">⏰ چک‌های این هفته</div>
+      <div class="stat-val" id="stCheques" style="color:var(--purple)">—</div>
+      <div class="stat-sub">سررسید نزدیک</div>
+    </div>
+  </div>
+
+  <div class="main-area">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sb-header">
+        <h2>سرمایه‌گذاران</h2>
+        <button class="btn-add" onclick="openAddModal()">+ جدید</button>
+      </div>
+      <div class="investor-list" id="invList">
+        <div style="padding:20px;text-align:center"><div class="loader"></div></div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content-area">
+      <!-- Investors tab -->
+      <div class="page active" id="tab-investors">
+        <div class="empty-state" id="emptyState">
+          <div class="ei">💼</div>
+          <p>یک سرمایه‌گذار انتخاب کنید</p>
+        </div>
+        <div id="detailPanel" style="display:none"></div>
+      </div>
+
+      <!-- Cheques tab -->
+      <div class="page" id="tab-cheques">
+        <div id="chequesContent"></div>
+      </div>
+
+      <!-- Report tab -->
+      <div class="page" id="tab-report">
+        <div id="reportContent"><div style="text-align:center;padding:40px"><div class="loader"></div></div></div>
+      </div>
+
+      <!-- Personal Report tab -->
+      <div class="page" id="tab-personal">
+        <div id="personalContent"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="overlay" id="invModal">
+  <div class="modal">
+    <div class="modal-title" id="invModalTitle">افزودن سرمایه‌گذار</div>
+    <div class="frow">
+      <div class="fg"><label class="fl">نام و نام خانوادگی *</label><input class="fi" id="f_name" placeholder="علی محمدی"></div>
+      <div class="fg"><label class="fl">شماره تماس</label><input class="fi" id="f_phone" placeholder="۰۹۱۲۳۴۵۶۷۸۹"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">مبلغ سرمایه (تومان) *</label><input class="fi" id="f_capital" type="number" placeholder="100000000"></div>
+      <div class="fg"><label class="fl">نرخ سود ماهیانه (٪) *</label><input class="fi" id="f_rate" type="number" step="0.1" placeholder="3"></div>
+    </div>
+    <div class="frow">
+      <div class="fg">
+        <label class="fl">تاریخ شروع شمسی *</label>
+        <div class="jdp-wrap">
+          <input class="fi jdp-input" id="f_start" placeholder="انتخاب تاریخ" readonly onclick="jdpOpen('f_start','jdp_start')">
+          <div class="jdp-popup" id="jdp_start"></div>
+        </div>
+      </div>
+      <div class="fg"><label class="fl">توضیحات</label><input class="fi" id="f_notes" placeholder="اختیاری"></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-secondary" onclick="closeModal('invModal')">انصراف</button>
+      <button class="btn btn-gold" onclick="saveInvestor()">ذخیره</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="overlay" id="payModal">
+  <div class="modal">
+    <div class="modal-title">ثبت پرداخت سود</div>
+    <div class="fg"><label class="fl">مبلغ پرداختی (تومان) *</label><input class="fi" id="p_amount" type="number"></div>
+    <div class="fg">
+      <label class="fl">تاریخ پرداخت شمسی *</label>
+      <div class="jdp-wrap">
+        <input class="fi jdp-input" id="p_date" placeholder="انتخاب تاریخ" readonly onclick="jdpOpen('p_date','jdp_pdate')">
+        <div class="jdp-popup" id="jdp_pdate"></div>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">توضیحات</label><input class="fi" id="p_note" placeholder="مثلاً: سود اردیبهشت ۱۴۰۴"></div>
+    <div class="m-actions">
+      <button class="btn btn-secondary" onclick="closeModal('payModal')">انصراف</button>
+      <button class="btn btn-success" onclick="savePayment()">ثبت پرداخت</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cheque Modal -->
+<div class="overlay" id="chequeModal">
+  <div class="modal">
+    <div class="modal-title" id="chequeModalTitle">ثبت چک جدید</div>
+    <div class="frow">
+      <div class="fg"><label class="fl">نام صاحب چک *</label><input class="fi" id="chq_owner" placeholder="علی محمدی"></div>
+      <div class="fg"><label class="fl">نام بانک</label><input class="fi" id="chq_bank" placeholder="بانک ملی"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">شماره چک</label><input class="fi" id="chq_number" placeholder="۱۲۳۴۵۶۷"></div>
+      <div class="fg"><label class="fl">مبلغ (تومان) *</label><input class="fi" id="chq_amount" type="number" placeholder="50000000"></div>
+    </div>
+    <div class="frow">
+      <div class="fg">
+        <label class="fl">تاریخ سررسید *</label>
+        <div class="jdp-wrap" style="width:100%">
+          <input class="fi jdp-input" style="width:100%" id="chq_due" placeholder="انتخاب تاریخ" readonly onclick="jdpOpen('chq_due','jdp_chqdue')">
+          <div class="jdp-popup" id="jdp_chqdue"></div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">نوع چک *</label>
+        <select class="fi" id="chq_type">
+          <option value="profit">فقط سود</option>
+          <option value="capital">فقط اصل سرمایه</option>
+          <option value="both">اصل + سود</option>
+          <option value="other">سایر</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">توضیحات</label><input class="fi" id="chq_note" placeholder="مثلاً: تسویه ۳ ماه سود آقای محمدی"></div>
+    <div class="m-actions">
+      <button class="btn btn-secondary" onclick="closeModal('chequeModal')">انصراف</button>
+      <button class="btn btn-gold" onclick="saveCheque()">ثبت چک</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== Firebase Config =====
+const firebaseConfig = {
+  apiKey: "AIzaSyDVn00oMNnDv-VhwAdg5ioUdcETSGOswMA",
+  authDomain: "alizo-ed747.firebaseapp.com",
+  databaseURL: "https://alizo-ed747-default-rtdb.firebaseio.com",
+  projectId: "alizo-ed747",
+  storageBucket: "alizo-ed747.firebasestorage.app",
+  messagingSenderId: "591736521629",
+  appId: "1:591736521629:web:1cfbf19542d26563496574"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ===== State =====
+let investors = [];
+let cheques   = [];
+let selectedId = null;
+let editId = null;
+let payInvId = null;
+let editChequeId = null;
+let chqFilter = 'all';
+
+// ===== Persian date =====
+function toFarsi(n) {
+  return String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+}
+function jalaliToday() {
+  try {
+    return new Intl.DateTimeFormat('fa-IR', { year:'numeric', month:'long', day:'numeric', calendar:'persian' }).format(new Date());
+  } catch(e) { return new Date().toLocaleDateString('fa-IR'); }
+}
+function milToJalali(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr + 'T12:00:00');
+    return new Intl.DateTimeFormat('fa-IR', { year:'numeric', month:'long', day:'numeric', calendar:'persian' }).format(d);
+  } catch(e) { return dateStr; }
+}
+function formatMoney(n) {
+  if (!n && n !== 0) return '—';
+  return toFarsi(Math.round(Number(n)).toLocaleString('en'));
+}
+
+// ===== Jalali <-> Gregorian =====
+function jalaliToGregorian(jy, jm, jd) {
+  jy=parseInt(jy); jm=parseInt(jm); jd=parseInt(jd);
+  var sal_a=[0,31,29,31,30,31,30,31,31,30,31,30,31];
+  var gy=(jy>979)?1600:621;
+  if(jy>979) jy-=979; // else jy unchanged
+  var sum=365*jy+(Math.floor(jy/33))*8+Math.floor((jy%33+3)/4)+78+jd+
+    (jm<7?(jm-1)*31:((jm-7)*30)+186);
+  gy+=400*(Math.floor(sum/146097)); sum%=146097;
+  if(sum>36524){
+    gy+=100*(Math.floor(--sum/36524)); sum%=36524;
+    if(sum>=365) sum++;
+  }
+  gy+=4*(Math.floor(sum/1461)); sum%=1461;
+  if(sum>365){ gy+=Math.floor((sum-1)/365); sum=(sum-1)%365; }
+  var isleap=((gy%4===0&&gy%100!==0)||(gy%400===0));
+  sal_a[2]=isleap?29:28;
+  var gm=1;
+  for(;sum>=sal_a[gm];gm++) sum-=sal_a[gm];
+  var gd=sum+1;
+  return String(gy)+'-'+String(gm).padStart(2,'0')+'-'+String(gd).padStart(2,'0');
+}
+
+function gregorianToJalali(gy, gm, gd) {
+  var g = [0,31,59,90,120,151,181,212,243,273,304,334];
+  var jy = (gy <= 1600) ? 0 : 979;
+  gy -= (gy <= 1600) ? 621 : 1600;
+  var gy2 = (gm > 2) ? (gy+1) : gy;
+  var days = (365*gy) + Math.floor((gy2+3)/4) - Math.floor((gy2+99)/100) + Math.floor((gy2+399)/400) - 80 + gd + g[gm-1];
+  jy += 33*Math.floor(days/12053);
+  days %= 12053;
+  jy += 4*Math.floor(days/1461);
+  days %= 1461;
+  if(days > 365) { jy += Math.floor((days-1)/365); days = (days-1)%365; }
+  var jm = (days < 186) ? 1+Math.floor(days/31) : 7+Math.floor((days-186)/30);
+  var jd = 1 + ((days < 186) ? (days%31) : (days-186)%30);
+  return {y:jy, m:jm, d:jd};
+}
+
+function todayGregorian() { return new Date().toISOString().split('T')[0]; }
+function todayJalali() {
+  const n=new Date(); const j=gregorianToJalali(n.getFullYear(),n.getMonth()+1,n.getDate());
+  return `${j.y}/${String(j.m).padStart(2,'0')}/${String(j.d).padStart(2,'0')}`;
+}
+// Convert "1403/02/15" to "2024-05-04"
+function jalaliInputToGregorian(str) {
+  if (!str) return '';
+  // support both / and -
+  const parts = str.replace(/-/g,'/').split('/');
+  if (parts.length !== 3) return str;
+  return jalaliToGregorian(parts[0], parts[1], parts[2]);
+}
+function gregorianToJalaliStr(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const j = gregorianToJalali(parts[0], parts[1], parts[2]);
+  return `${j.y}/${String(j.m).padStart(2,'0')}/${String(j.d).padStart(2,'0')}`;
+}
+
+// ===== Auth =====
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').classList.add('show');
+    document.getElementById('headerDate').textContent = jalaliToday();
+    loadInvestors();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('app').classList.remove('show');
+  }
+});
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginErr');
+  err.classList.remove('show');
+  btn.textContent = ''; btn.innerHTML = '<div class="loader" style="border-top-color:#000"></div>';
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e) {
+    err.textContent = 'ایمیل یا رمز عبور اشتباه است';
+    err.classList.add('show');
+    btn.textContent = 'ورود';
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none') doLogin(); });
+
+function doLogout() { auth.signOut(); investors = []; selectedId = null; }
+
+// ===== Firestore =====
+function col() { return db.collection('investors').doc(auth.currentUser.uid).collection('list'); }
+function chqCol() { return db.collection('investors').doc(auth.currentUser.uid).collection('cheques'); }
+
+async function loadInvestors() {
+  const [invSnap, chqSnap] = await Promise.all([
+    col().orderBy('createdAt', 'asc').get(),
+    chqCol().orderBy('createdAt', 'desc').get()
+  ]);
+  investors = invSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  cheques   = chqSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderList();
+  updateStats();
+  if (investors.length > 0 && !selectedId) {
+    selectedId = investors[0].id;
+    renderList();
+    renderDetail();
+  }
+}
+
+async function saveInvestorDB(data, id) {
+  if (id) {
+    await col().doc(id).update(data);
+    await loadInvestors();
+  } else {
+    const docRef = await col().add({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await loadInvestors();
+    selectedId = docRef.id;
+    renderList();
+    renderDetail();
+  }
+}
+
+async function deleteInvestorDB(id) {
+  await col().doc(id).delete();
+  await loadInvestors();
+}
+
+// ===== Calculations =====
+const J_MONTHS = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+
+// Parse "YYYY-MM-DD" → {y,m,d} Jalali
+function gregStrToJalali(dateStr) {
+  if (!dateStr) return null;
+  const p = dateStr.split('-');
+  return gregorianToJalali(+p[0], +p[1], +p[2]);
+}
+
+// Jalali {y,m,d} → Gregorian "YYYY-MM-DD"
+function jalaliObjToGreg(jy, jm, jd) {
+  return jalaliToGregorian(jy, jm, jd);
+}
+
+// Compare two Jalali {y,m,d} objects — returns -1, 0, 1
+function jCmp(a, b) {
+  if (a.y !== b.y) return a.y < b.y ? -1 : 1;
+  if (a.m !== b.m) return a.m < b.m ? -1 : 1;
+  if (a.d !== b.d) return a.d < b.d ? -1 : 1;
+  return 0;
+}
+
+// Add N Jalali months to {y,m,d}
+function jAddMonths(jDate, n) {
+  let m = jDate.m - 1 + n;
+  let y = jDate.y + Math.floor(m / 12);
+  m = m % 12;
+  return { y, m: m + 1, d: jDate.d };
+}
+
+// Today as Jalali {y,m,d}
+function jToday() {
+  const n = new Date();
+  return gregorianToJalali(n.getFullYear(), n.getMonth()+1, n.getDate());
+}
+
+// Build profit schedule — ترتیب درست:
+// ۱. سود ماه به مانده اضافه میشه
+// ۲. پرداختی‌هایی که بین این سررسید و سررسید قبلی بودن از مانده کم میشن
+function buildProfitSchedule(inv, untilJ) {
+  if (!inv.startDate) return [];
+  const startJ   = gregStrToJalali(inv.startDate);
+  const todayJ   = untilJ || jToday();
+  const rate     = Number(inv.rate) / 100;
+  const payments = [...(inv.payments || [])].sort((a,b) => a.date.localeCompare(b.date));
+
+  let balance = Number(inv.capital);
+  const rows  = [];
+  let cur     = jAddMonths(startJ, 1);
+
+  while (jCmp(cur, todayJ) <= 0) {
+    const curGreg  = jalaliObjToGreg(cur.y, cur.m, cur.d);
+    const prevGreg = rows.length > 0 ? rows[rows.length-1].gregDate : inv.startDate;
+
+    // ۱. اول سود رو حساب و اضافه کن
+    const profit = balance * rate;
+    balance += profit;
+
+    // ۲. بعد پرداختی‌های این بازه رو کم کن
+    for (const p of payments) {
+      if (p.date > prevGreg && p.date <= curGreg) {
+        balance -= Number(p.amount);
+        if (balance < 0) balance = 0;
+      }
+    }
+
+    rows.push({
+      jDate:         { ...cur },
+      label:         `سود ${J_MONTHS[cur.m - 1]} ${toFarsi(cur.y)}`,
+      amount:        profit,
+      gregDate:      curGreg,
+      balanceAfter:  balance   // مانده بعد از سود و پرداخت
+    });
+
+    cur = jAddMonths(cur, 1);
+  }
+  return rows;
+}
+
+// مانده جاری = آخرین balanceAfter در schedule (یا اصل سرمایه اگه هنوز سررسیدی نرسیده)
+function currentBalance(inv) {
+  const schedule = buildProfitSchedule(inv);
+  if (schedule.length === 0) return Number(inv.capital);
+  return schedule[schedule.length - 1].balanceAfter;
+}
+// Next month's profit = rate% × current balance
+function monthlyProfit(inv) {
+  const bal = currentBalance(inv);
+  return bal * (Number(inv.rate) / 100);
+}
+function totalProfit(inv) {
+  return buildProfitSchedule(inv).reduce((s, r) => s + r.amount, 0);
+}
+function totalPaid(inv) { return (inv.payments || []).reduce((s, p) => s + Number(p.amount), 0); }
+function unpaid(inv)    { return Math.max(0, totalProfit(inv) - totalPaid(inv)); }
+
+// ===== Stats =====
+function updateStats() {
+  document.getElementById('stCapital').textContent = formatMoney(investors.reduce((s,i) => s+Number(i.capital),0));
+  document.getElementById('stMonthly').textContent = formatMoney(investors.reduce((s,i) => s+monthlyProfit(i),0));
+  document.getElementById('stCount').textContent = toFarsi(investors.length);
+  document.getElementById('stUnpaid').textContent = formatMoney(investors.reduce((s,i) => s+unpaid(i),0));
+  // Cheques due in next 7 days
+  const todayG = todayGregorian();
+  const in7G   = new Date(); in7G.setDate(in7G.getDate()+7);
+  const in7Str = in7G.toISOString().split('T')[0];
+  const alertCount = cheques.filter(c => !c.cashed && c.dueDate >= todayG && c.dueDate <= in7Str).length;
+  const overdueCount = cheques.filter(c => !c.cashed && c.dueDate < todayG).length;
+  const el = document.getElementById('stCheques');
+  if (el) {
+    const total = alertCount + overdueCount;
+    el.textContent = toFarsi(total);
+    el.parentElement.style.borderRight = total > 0 ? '3px solid var(--purple)' : '';
+  }
+}
+
+// ===== Tabs =====
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+  if (tab === 'report')   renderReport();
+  if (tab === 'personal') renderPersonal();
+  if (tab === 'cheques')  renderCheques();
+}
+
+// ===== Personal Report =====
+let prInvId = null;
+let prFrom = '';
+let prTo = '';
+
+function renderPersonal() {
+  const el = document.getElementById('personalContent');
+  if (!investors.length) {
+    el.innerHTML = '<div class="empty-state"><div class="ei">🧾</div><p>سرمایه‌گذاری ثبت نشده</p></div>';
+    return;
+  }
+  if (!prInvId) prInvId = investors[0].id;
+  const options = investors.map(i =>
+    `<option value="${i.id}" ${i.id===prInvId?'selected':''}>${i.name}</option>`
+  ).join('');
+
+  el.innerHTML = `
+    <div class="pr-toolbar">
+      <div class="fg">
+        <label>سرمایه‌گذار</label>
+        <select id="prInvSelect" onchange="prInvId=this.value;renderPRTable()">
+          ${options}
+        </select>
+      </div>
+      <div class="fg">
+        <label>از تاریخ شمسی</label>
+        <div class="jdp-wrap">
+          <input class="jdp-input" id="prFrom" placeholder="از تاریخ (اختیاری)" readonly onclick="jdpOpen('prFrom','jdp_prFrom',true)">
+          <div class="jdp-popup" id="jdp_prFrom"></div>
+        </div>
+      </div>
+      <div class="fg">
+        <label>تا تاریخ شمسی</label>
+        <div class="jdp-wrap">
+          <input class="jdp-input" id="prTo" placeholder="تا تاریخ (اختیاری)" readonly onclick="jdpOpen('prTo','jdp_prTo',true)">
+          <div class="jdp-popup" id="jdp_prTo"></div>
+        </div>
+      </div>
+      <button class="btn btn-gold" onclick="renderPRTable()">نمایش گزارش</button>
+      <button class="btn btn-secondary pr-print-hide" onclick="window.print()">🖨️ چاپ</button>
+    </div>
+    <div id="prTable"></div>
+  `;
+  // Restore picker values if already set
+  if (prFrom) document.getElementById('prFrom').value = prFrom;
+  if (prTo)   document.getElementById('prTo').value   = prTo;
+  renderPRTable();
+}
+
+function parseJalaliInput(str) {
+  if (!str) return null;
+  const parts = str.replace(/-/g,'/').split('/');
+  if (parts.length !== 3) return null;
+  const y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
+  if (!y || !m || !d) return null;
+  return { y, m, d };
+}
+
+function renderPRTable() {
+  const inv = investors.find(i => i.id === prInvId);
+  if (!inv) return;
+  const el = document.getElementById('prTable');
+  if (!el) return;
+
+  // Read directly from inputs (not state vars) — state vars used only for restore after re-render
+  const fromInput = document.getElementById('prFrom');
+  const toInput   = document.getElementById('prTo');
+  prFrom = fromInput ? fromInput.value : prFrom;
+  prTo   = toInput   ? toInput.value   : prTo;
+
+  const fromJ = parseJalaliInput(prFrom);
+  const toJ   = parseJalaliInput(prTo) || jToday();
+
+  // Build full ledger (profit rows + payment rows) within range
+  const allProfits = buildProfitSchedule(inv, toJ);
+  const allPayments = [...(inv.payments||[])].sort((a,b)=>a.date.localeCompare(b.date));
+
+  // Convert payments to Jalali for display & filtering
+  const payRows = allPayments.map(p => ({
+    jDate: gregStrToJalali(p.date),
+    gregDate: p.date,
+    amount: Number(p.amount),
+    note: p.note || '',
+    isPayment: true,
+    id: p.id
+  }));
+
+  // Filter to range
+  const filteredProfits  = allProfits.filter(r => (!fromJ || jCmp(r.jDate, fromJ) >= 0) && jCmp(r.jDate, toJ) <= 0);
+  const filteredPayments = payRows.filter(r => (!fromJ || jCmp(r.jDate, fromJ) >= 0) && jCmp(r.jDate, toJ) <= 0);
+
+  // Merge and sort all events chronologically
+  const allEvents = [
+    ...filteredProfits.map(r => ({ ...r, type: 'profit' })),
+    ...filteredPayments.map(r => ({ ...r, type: 'payment' }))
+  ].sort((a,b) => {
+    const c = jCmp(a.jDate, b.jDate);
+    if (c !== 0) return c;
+    return a.type === 'profit' ? -1 : 1; // profit before payment on same day
+  });
+
+  // Running balance (positive = ما بدهکاریم / negative = او بستانکاره)
+  // Start balance: sum of profits BEFORE fromJ minus payments BEFORE fromJ
+  let openingBalance = 0;
+  if (fromJ) {
+    const prevProfits   = allProfits.filter(r => jCmp(r.jDate, fromJ) < 0).reduce((s,r)=>s+r.amount,0);
+    const prevPayments  = payRows.filter(r => jCmp(r.jDate, fromJ) < 0).reduce((s,r)=>s+r.amount,0);
+    openingBalance = prevProfits - prevPayments;
+  }
+
+  let balance = openingBalance;
+  let totalProfitInRange   = filteredProfits.reduce((s,r)=>s+r.amount,0);
+  let totalPaymentInRange  = filteredPayments.reduce((s,r)=>s+r.amount,0);
+
+  // Summary strip
+  const mp = monthlyProfit(inv);
+  const finalBalance = balance + totalProfitInRange - totalPaymentInRange;
+
+  const summaryHTML = `
+    <div class="pr-print-header">گزارش مالی — ${inv.name}${fromJ?` — از ${toFarsi(fromJ.y)}/${toFarsi(fromJ.m)}/${toFarsi(fromJ.d)}`:''}${` تا ${toFarsi(toJ.y)}/${toFarsi(toJ.m)}/${toFarsi(toJ.d)}`}</div>
+    <div class="pr-summary-strip">
+      <div class="ic"><div class="ic-label">سرمایه</div><div class="ic-val gold">${formatMoney(inv.capital)}</div><div class="ic-sub">${toFarsi(inv.rate)}٪ در ماه</div></div>
+      <div class="ic"><div class="ic-label">سود در این بازه</div><div class="ic-val red">${formatMoney(totalProfitInRange)}</div><div class="ic-sub">${toFarsi(filteredProfits.length)} ماه × ${formatMoney(mp)}</div></div>
+      <div class="ic"><div class="ic-label">پرداخت در این بازه</div><div class="ic-val green">${formatMoney(totalPaymentInRange)}</div><div class="ic-sub">${toFarsi(filteredPayments.length)} تراکنش</div></div>
+      <div class="ic"><div class="ic-label">مانده پایان بازه</div>
+        <div class="ic-val ${finalBalance>0?'red':finalBalance<0?'green':''}">
+          ${finalBalance===0 ? 'تسویه' : (finalBalance>0 ? `${formatMoney(finalBalance)} بدهکار` : `${formatMoney(-finalBalance)} بستانکار`)}
+        </div>
+        <div class="ic-sub">${finalBalance>0?'ما به او بدهکاریم':finalBalance<0?'او به ما بدهکاره':'تسویه کامل'}</div>
+      </div>
+    </div>
+  `;
+
+  if (allEvents.length === 0) {
+    el.innerHTML = summaryHTML + '<div class="empty-state" style="height:200px"><p>در این بازه تراکنشی وجود ندارد</p></div>';
+    return;
+  }
+
+  // Build ledger rows
+  let rows = '';
+  if (fromJ && openingBalance !== 0) {
+    rows += `<tr style="background:#111820">
+      <td colspan="3" style="color:var(--text-muted);font-style:italic">مانده ابتدای بازه</td>
+      <td></td>
+      <td class="${openingBalance>0?'bal-pos':openingBalance<0?'bal-neg':'bal-zero'}">
+        ${openingBalance===0?'تسویه':openingBalance>0?`${formatMoney(openingBalance)} بدهکار`:`${formatMoney(-openingBalance)} بستانکار`}
+      </td>
+    </tr>`;
+  }
+
+  for (const ev of allEvents) {
+    const dateStr = `${toFarsi(ev.jDate.y)}/${toFarsi(String(ev.jDate.m).padStart(2,'0'))}/${toFarsi(String(ev.jDate.d).padStart(2,'0'))}`;
+    if (ev.type === 'profit') {
+      balance += ev.amount;
+      rows += `<tr class="row-profit">
+        <td>${dateStr}</td>
+        <td>${ev.label}</td>
+        <td class="debit">${formatMoney(ev.amount)}</td>
+        <td>—</td>
+        <td class="${balance>0?'bal-pos':balance<0?'bal-neg':'bal-zero'}">
+          ${balance===0?'✅ تسویه':balance>0?`${formatMoney(balance)} بدهکار`:`${formatMoney(-balance)} بستانکار`}
+        </td>
+      </tr>`;
+    } else {
+      balance -= ev.amount;
+      rows += `<tr class="row-payment">
+        <td>${dateStr}</td>
+        <td>${ev.note || 'پرداخت سود'}</td>
+        <td>—</td>
+        <td class="credit">${formatMoney(ev.amount)}</td>
+        <td class="${balance>0?'bal-pos':balance<0?'bal-neg':'bal-zero'}">
+          ${balance===0?'✅ تسویه':balance>0?`${formatMoney(balance)} بدهکار`:`${formatMoney(-balance)} بستانکار`}
+        </td>
+      </tr>`;
+    }
+  }
+
+  el.innerHTML = summaryHTML + `
+    <div class="table-wrap">
+      <table class="ledger-table">
+        <thead>
+          <tr>
+            <th>تاریخ</th>
+            <th>شرح</th>
+            <th style="color:var(--red)">بدهکار (سود)</th>
+            <th style="color:var(--green)">بستانکار (پرداخت)</th>
+            <th>مانده</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--text-muted);padding:0 4px">
+      🔴 ردیف‌های قرمز = سود اضافه شده &nbsp;|&nbsp; 🟢 ردیف‌های سبز = پرداخت دریافت شده
+    </div>
+  `;
+}
+function renderProfitScheduleRows(inv) {
+  const todayJ = jToday();
+  const schedule = buildProfitSchedule(inv); // up to today only
+  if (!schedule.length) return '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:12px">سررسیدی برای نمایش وجود ندارد</div>';
+
+  // Which months are paid — match by label
+  const paidLabels = new Set((inv.payments || []).map(p => p.note));
+
+  let rows = '';
+  for (const row of [...schedule].reverse()) {
+    const isPaid  = paidLabels.has(row.label);
+    const dateStr = `${toFarsi(row.jDate.y)}/${toFarsi(String(row.jDate.m).padStart(2,'0'))}/${toFarsi(String(row.jDate.d).padStart(2,'0'))}`;
+    const balStr  = formatMoney(Math.round(row.balanceAfter));
+    let statusBadge, actionBtn;
+    if (isPaid) {
+      statusBadge = `<span class="badge b-green">✅ پرداخت شده</span>`;
+      actionBtn   = '';
+    } else {
+      statusBadge = `<span class="badge b-red">⏰ پرداخت نشده</span>`;
+      actionBtn   = `<button class="btn btn-success btn-sm" onclick="quickPayProfit('${inv.id}','${row.label}',${Math.round(row.amount)},'${row.gregDate}')">ثبت پرداخت</button>`;
+    }
+    rows += `<tr>
+      <td>${dateStr}</td>
+      <td>${row.label}</td>
+      <td style="color:var(--red);font-weight:600">${formatMoney(Math.round(row.amount))}</td>
+      <td style="color:var(--gold-light)">${balStr}</td>
+      <td>${statusBadge}</td>
+      <td>${actionBtn}</td>
+    </tr>`;
+  }
+  return `<table>
+    <thead><tr><th>تاریخ سررسید</th><th>شرح</th><th>سود</th><th>مانده بعد از پرداخت</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+async function quickPayProfit(invId, label, amount, gregDate) {
+  if (!confirm(`ثبت پرداخت سود:\n${label}\nمبلغ: ${Math.round(amount).toLocaleString('fa-IR')} تومان`)) return;
+  const inv = investors.find(i => i.id === invId);
+  const payments = [...(inv.payments || []), {
+    id: Date.now().toString(),
+    amount: Math.round(amount),
+    date: gregDate,
+    note: label
+  }];
+  await saveInvestorDB({ ...inv, payments }, invId);
+  selectedId = invId;
+  renderDetail();
+  updateStats();
+  toast('✅ پرداخت سود ثبت شد');
+}
+
+// ===== Cheques =====
+const CHQ_TYPES = { profit:'سود', capital:'اصل سرمایه', both:'اصل + سود', other:'سایر' };
+
+function chqDueStatus(dueDate) {
+  const today = todayGregorian();
+  const in7   = new Date(); in7.setDate(in7.getDate()+7);
+  const in7Str = in7.toISOString().split('T')[0];
+  if (dueDate < today) return 'overdue';
+  if (dueDate <= in7Str) return 'soon';
+  return 'future';
+}
+
+function renderCheques() {
+  const el = document.getElementById('chequesContent');
+  const todayG = todayGregorian();
+  const in7G   = new Date(); in7G.setDate(in7G.getDate()+7);
+  const in7Str = in7G.toISOString().split('T')[0];
+
+  // Alert banner
+  const overdue = cheques.filter(c => !c.cashed && c.dueDate < todayG);
+  const soon    = cheques.filter(c => !c.cashed && c.dueDate >= todayG && c.dueDate <= in7Str);
+  let bannerHTML = '';
+  if (overdue.length > 0 || soon.length > 0) {
+    bannerHTML = `<div class="chq-alert-banner">
+      <span style="font-size:20px">⚠️</span>
+      <span>
+        ${overdue.length > 0 ? `<strong style="color:var(--red)">${toFarsi(overdue.length)} چک سررسید گذشته</strong>` : ''}
+        ${overdue.length > 0 && soon.length > 0 ? ' · ' : ''}
+        ${soon.length > 0 ? `<strong style="color:var(--gold-light)">${toFarsi(soon.length)} چک این هفته سررسید</strong>` : ''}
+      </span>
+    </div>`;
+  }
+
+  // Filter
+  let filtered = cheques;
+  if (chqFilter === 'overdue') filtered = cheques.filter(c => !c.cashed && c.dueDate < todayG);
+  else if (chqFilter === 'soon') filtered = cheques.filter(c => !c.cashed && c.dueDate >= todayG && c.dueDate <= in7Str);
+  else if (chqFilter === 'pending') filtered = cheques.filter(c => !c.cashed);
+  else if (chqFilter === 'cashed') filtered = cheques.filter(c => c.cashed);
+
+  // Sort: overdue first, then by date
+  filtered = [...filtered].sort((a,b) => {
+    if (!a.cashed && b.cashed) return -1;
+    if (a.cashed && !b.cashed) return 1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+
+  const cards = filtered.length === 0
+    ? `<div class="empty-state" style="height:200px"><div class="ei">🏦</div><p>چکی در این دسته وجود ندارد</p></div>`
+    : filtered.map(c => {
+        const status = c.cashed ? 'cashed' : chqDueStatus(c.dueDate);
+        const statusLabel = {
+          overdue: `<span class="badge b-red">⏰ سررسید گذشته</span>`,
+          soon:    `<span class="badge b-yellow">⚡ این هفته</span>`,
+          future:  `<span class="badge" style="background:#1a1a2e;color:var(--blue);border:1px solid #2a2a4e">📅 آینده</span>`,
+          cashed:  `<span class="badge b-green">✅ وصول شد</span>`
+        }[status];
+        const dueDateStr = milToJalali(c.dueDate);
+        const typeLabel  = CHQ_TYPES[c.type] || c.type;
+        return `
+          <div class="cheque-card">
+            <div>
+              <div class="chq-name">${c.owner}</div>
+              <div class="chq-bank">${c.bank ? c.bank + (c.number ? ' · ' + c.number : '') : (c.number || '')}</div>
+              <div style="font-size:11px;color:var(--purple);margin-top:2px">${typeLabel}${c.note ? ' · ' + c.note : ''}</div>
+            </div>
+            <div class="chq-amount">${formatMoney(c.amount)}</div>
+            <div>
+              <div class="chq-date ${status}">${dueDateStr}</div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${statusLabel}</div>
+            </div>
+            <div class="chq-actions">
+              ${!c.cashed ? `<button class="btn btn-success btn-sm" onclick="cashCheque('${c.id}')">✅ وصول شد</button>` : ''}
+              <button class="btn btn-secondary btn-sm" onclick="editCheque('${c.id}')">ویرایش</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteCheque('${c.id}')">حذف</button>
+            </div>
+          </div>`;
+      }).join('');
+
+  // Summary
+  const totalPending = cheques.filter(c=>!c.cashed).reduce((s,c)=>s+Number(c.amount),0);
+  const totalCashed  = cheques.filter(c=>c.cashed).reduce((s,c)=>s+Number(c.amount),0);
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="font-size:18px;font-weight:700;color:var(--gold-light)">🏦 مدیریت چک‌ها</div>
+      <button class="btn btn-gold" onclick="openChequeModal()">+ ثبت چک جدید</button>
+    </div>
+
+    <div class="report-grid" style="margin-bottom:20px">
+      <div class="ic"><div class="ic-label">کل چک‌ها</div><div class="ic-val" style="color:var(--purple)">${toFarsi(cheques.length)}</div><div class="ic-sub">عدد</div></div>
+      <div class="ic"><div class="ic-label">در انتظار وصول</div><div class="ic-val red">${formatMoney(totalPending)}</div><div class="ic-sub">${toFarsi(cheques.filter(c=>!c.cashed).length)} چک</div></div>
+      <div class="ic"><div class="ic-label">وصول شده</div><div class="ic-val green">${formatMoney(totalCashed)}</div><div class="ic-sub">${toFarsi(cheques.filter(c=>c.cashed).length)} چک</div></div>
+    </div>
+
+    ${bannerHTML}
+
+    <div class="cheque-filters">
+      <span style="font-size:12px;color:var(--text-muted)">فیلتر:</span>
+      ${[
+        ['all','همه'],['pending','در انتظار'],['overdue','سررسید گذشته'],['soon','این هفته'],['cashed','وصول شده']
+      ].map(([k,v]) => `<button class="chq-filter-btn ${chqFilter===k?'active':''}" onclick="chqFilter='${k}';renderCheques()">${v}</button>`).join('')}
+    </div>
+
+    <div id="chqCards">${cards}</div>
+  `;
+}
+
+function openChequeModal(id) {
+  editChequeId = id || null;
+  document.getElementById('chequeModalTitle').textContent = id ? 'ویرایش چک' : 'ثبت چک جدید';
+  if (id) {
+    const c = cheques.find(x => x.id === id);
+    document.getElementById('chq_owner').value  = c.owner || '';
+    document.getElementById('chq_bank').value   = c.bank  || '';
+    document.getElementById('chq_number').value = c.number|| '';
+    document.getElementById('chq_amount').value = c.amount|| '';
+    document.getElementById('chq_due').value    = gregorianToJalaliStr(c.dueDate) || '';
+    document.getElementById('chq_type').value   = c.type  || 'profit';
+    document.getElementById('chq_note').value   = c.note  || '';
+  } else {
+    ['chq_owner','chq_bank','chq_number','chq_note'].forEach(i => document.getElementById(i).value = '');
+    document.getElementById('chq_amount').value = '';
+    document.getElementById('chq_due').value = '';
+    document.getElementById('chq_type').value = 'profit';
+  }
+  document.getElementById('chequeModal').classList.add('show');
+}
+
+function editCheque(id) { openChequeModal(id); }
+
+async function saveCheque() {
+  const owner  = document.getElementById('chq_owner').value.trim();
+  const amount = Number(document.getElementById('chq_amount').value);
+  const dueJ   = document.getElementById('chq_due').value.trim();
+  if (!owner || !amount || !dueJ) { toast('نام، مبلغ و تاریخ سررسید الزامی است', true); return; }
+  const dueDate = jalaliInputToGregorian(dueJ);
+  if (!dueDate || dueDate.length < 8) { toast('فرمت تاریخ اشتباه است', true); return; }
+  const data = {
+    owner, amount,
+    bank:   document.getElementById('chq_bank').value.trim(),
+    number: document.getElementById('chq_number').value.trim(),
+    dueDate,
+    type:   document.getElementById('chq_type').value,
+    note:   document.getElementById('chq_note').value.trim(),
+    cashed: editChequeId ? (cheques.find(c=>c.id===editChequeId)?.cashed || false) : false
+  };
+  try {
+    if (editChequeId) {
+      await chqCol().doc(editChequeId).update(data);
+    } else {
+      await chqCol().add({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    closeModal('chequeModal');
+    await loadInvestors();
+    renderCheques();
+    toast('✅ چک ذخیره شد');
+  } catch(e) { toast('❌ خطا: ' + e.message, true); }
+}
+
+async function cashCheque(id) {
+  if (!confirm('این چک وصول شد؟')) return;
+  await chqCol().doc(id).update({ cashed: true, cashedDate: todayGregorian() });
+  await loadInvestors();
+  renderCheques();
+  toast('✅ چک وصول شد');
+}
+
+async function deleteCheque(id) {
+  if (!confirm('این چک حذف شود؟')) return;
+  await chqCol().doc(id).delete();
+  await loadInvestors();
+  renderCheques();
+  toast('چک حذف شد');
+}
+
+function renderList() {
+  const list = document.getElementById('invList');
+  if (!investors.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:12px">سرمایه‌گذاری ثبت نشده</div>';
+    return;
+  }
+  list.innerHTML = investors.map(inv => `
+    <div class="inv-item ${inv.id === selectedId ? 'active' : ''}" onclick="selectInv('${inv.id}')">
+      <div class="avatar">${inv.name.charAt(0)}</div>
+      <div class="inv-info">
+        <div class="inv-name">${inv.name}</div>
+        <div class="inv-amt">${formatMoney(inv.capital)} تومان</div>
+      </div>
+      <div class="inv-badge">${toFarsi(inv.rate)}٪</div>
+    </div>
+  `).join('');
+}
+
+// ===== Detail =====
+function selectInv(id) {
+  selectedId = id;
+  renderList();
+  renderDetail();
+  if (window.innerWidth < 700) {
+    document.querySelector('.content-area').scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+function renderDetail() {
+  const inv = investors.find(i => i.id === selectedId);
+  if (!inv) return;
+  document.getElementById('emptyState').style.display = 'none';
+  const panel = document.getElementById('detailPanel');
+  panel.style.display = 'block';
+
+  const mp = monthlyProfit(inv);
+  const tp = totalProfit(inv);
+  const paid = totalPaid(inv);
+  const due = unpaid(inv);
+  const months = buildProfitSchedule(inv).length;
+  const curBal = currentBalance(inv);
+
+  const payments = inv.payments || [];
+  const pRows = payments.length === 0
+    ? `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">پرداختی ثبت نشده</td></tr>`
+    : [...payments].reverse().map((p,i) => `
+      <tr>
+        <td>${toFarsi(payments.length - i)}</td>
+        <td>${formatMoney(p.amount)} تومان</td>
+        <td>${milToJalali(p.date)}</td>
+        <td>${p.note || '—'}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deletePayment('${inv.id}','${p.id}')">حذف</button></td>
+      </tr>`).join('');
+
+  panel.innerHTML = `
+    <div class="detail-head">
+      <div class="dh-left">
+        <div class="d-avatar">${inv.name.charAt(0)}</div>
+        <div>
+          <div class="d-name">${inv.name}</div>
+          <div class="d-phone">${inv.phone || 'شماره ثبت نشده'}${inv.notes ? ' · ' + inv.notes : ''}</div>
+        </div>
+      </div>
+      <div class="dh-actions">
+        <button class="btn btn-secondary" onclick="window.print()">🖨️ چاپ</button>
+        <button class="btn btn-success" onclick="openPayModal('${inv.id}')">+ پرداخت</button>
+        <button class="btn btn-secondary" onclick="openEditModal('${inv.id}')">ویرایش</button>
+        <button class="btn btn-danger" onclick="confirmDelete('${inv.id}')">حذف</button>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="ic"><div class="ic-label">اصل سرمایه</div><div class="ic-val gold">${formatMoney(inv.capital)}</div><div class="ic-sub">تومان</div></div>
+      <div class="ic"><div class="ic-label">مانده جاری (اصل+سود−پرداخت)</div><div class="ic-val gold">${formatMoney(Math.round(curBal))}</div><div class="ic-sub">تومان</div></div>
+      <div class="ic"><div class="ic-label">سود ماه بعد</div><div class="ic-val green">${formatMoney(Math.round(mp))}</div><div class="ic-sub">نرخ ${toFarsi(inv.rate)}٪ از مانده جاری</div></div>
+      <div class="ic"><div class="ic-label">کل سود انباشته (${toFarsi(months)} ماه)</div><div class="ic-val blue">${formatMoney(Math.round(tp))}</div><div class="ic-sub">از ${milToJalali(inv.startDate)}</div></div>
+      <div class="ic"><div class="ic-label">پرداخت شده</div><div class="ic-val green">${formatMoney(paid)}</div><div class="ic-sub">تومان</div></div>
+      <div class="ic"><div class="ic-label">سود پرداخت‌نشده</div><div class="ic-val ${due > 0 ? 'red' : 'green'}">${formatMoney(Math.round(due))}</div><div class="ic-sub">${due > 0 ? 'پرداخت نشده' : '✅ تسویه'}</div></div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title"><span>جدول سررسیدهای سود</span><span style="font-size:11px;color:var(--text-muted)">۶ ماه آینده + گذشته پرداخت‌نشده</span></div>
+      <div class="table-wrap" id="profitScheduleTable">
+        ${renderProfitScheduleRows(inv)}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title"><span>تاریخچه پرداخت‌ها</span><span>${toFarsi(payments.length)} پرداخت</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>مبلغ</th><th>تاریخ</th><th>توضیحات</th><th>عملیات</th></tr></thead>
+        <tbody>${pRows}</tbody>
+      </table></div>
+    </div>`;
+}
+
+// ===== Report =====
+function renderReport() {
+  const el = document.getElementById('reportContent');
+  if (!investors.length) {
+    el.innerHTML = '<div class="empty-state"><div class="ei">📊</div><p>داده‌ای برای نمایش وجود ندارد</p></div>';
+    return;
+  }
+
+  const totalCap = investors.reduce((s,i) => s+Number(i.capital), 0);
+  const totalMp = investors.reduce((s,i) => s+monthlyProfit(i), 0);
+  const totalTp = investors.reduce((s,i) => s+totalProfit(i), 0);
+  const totalPaidAll = investors.reduce((s,i) => s+totalPaid(i), 0);
+  const totalDue = investors.reduce((s,i) => s+unpaid(i), 0);
+  const settled = investors.filter(i => unpaid(i) === 0).length;
+
+  // capital bars
+  const maxCap = Math.max(...investors.map(i => Number(i.capital)));
+  const capBars = investors.map(i => `
+    <div class="bar-row">
+      <div class="bar-label">${i.name}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(Number(i.capital)/maxCap*100).toFixed(1)}%"></div></div>
+      <div class="bar-val">${formatMoney(i.capital)}</div>
+    </div>`).join('');
+
+  // unpaid bars
+  const maxDue = Math.max(...investors.map(i => unpaid(i)), 1);
+  const dueBars = investors.map(i => {
+    const d = unpaid(i);
+    return `
+    <div class="bar-row">
+      <div class="bar-label">${i.name}</div>
+      <div class="bar-track"><div class="bar-fill ${d > 0 ? 'red' : 'green'}" style="width:${d > 0 ? (d/maxDue*100).toFixed(1) : '100'}%"></div></div>
+      <div class="bar-val">${d > 0 ? formatMoney(d) : '<span style="color:var(--green)">تسویه</span>'}</div>
+    </div>`;}).join('');
+
+  // summary table
+  const tRows = investors.map((inv, idx) => {
+    const mp = monthlyProfit(inv);
+    const tp = totalProfit(inv);
+    const paid = totalPaid(inv);
+    const due = unpaid(inv);
+    const months = buildProfitSchedule(inv).length;
+    return `<tr>
+      <td>${toFarsi(idx+1)}</td>
+      <td>${inv.name}</td>
+      <td>${formatMoney(inv.capital)}</td>
+      <td>${toFarsi(inv.rate)}٪</td>
+      <td>${formatMoney(mp)}</td>
+      <td>${toFarsi(months)} ماه</td>
+      <td>${formatMoney(tp)}</td>
+      <td>${formatMoney(paid)}</td>
+      <td>${due > 0 ? `<span class="badge b-red">${formatMoney(due)}</span>` : `<span class="badge b-green">تسویه</span>`}</td>
+    </tr>`;}).join('');
+
+  el.innerHTML = `
+    <div class="report-title">گزارش کلی سرمایه‌گذاران</div>
+
+    <div class="report-grid" style="margin-bottom:24px">
+      <div class="ic"><div class="ic-label">کل سرمایه تحت مدیریت</div><div class="ic-val gold">${formatMoney(totalCap)}</div><div class="ic-sub">تومان</div></div>
+      <div class="ic"><div class="ic-label">سود ماهیانه کل</div><div class="ic-val green">${formatMoney(totalMp)}</div><div class="ic-sub">تومان / ماه</div></div>
+      <div class="ic"><div class="ic-label">کل سود انباشته</div><div class="ic-val blue">${formatMoney(totalTp)}</div><div class="ic-sub">تومان</div></div>
+      <div class="ic"><div class="ic-label">کل پرداخت شده</div><div class="ic-val green">${formatMoney(totalPaidAll)}</div><div class="ic-sub">تومان</div></div>
+      <div class="ic"><div class="ic-label">کل پرداخت نشده</div><div class="ic-val red">${formatMoney(totalDue)}</div><div class="ic-sub">تومان</div></div>
+      <div class="ic"><div class="ic-label">وضعیت تسویه</div><div class="ic-val" style="font-size:14px;margin-top:6px"><span class="badge b-green">${toFarsi(settled)} تسویه</span> <span class="badge b-red">${toFarsi(investors.length-settled)} بدهکار</span></div></div>
+    </div>
+
+    <div class="report-section">
+      <div class="bar-chart">
+        <div class="chart-title">سرمایه هر شخص (تومان)</div>
+        ${capBars}
+      </div>
+    </div>
+
+    <div class="report-section">
+      <div class="bar-chart">
+        <div class="chart-title">سود پرداخت نشده هر شخص</div>
+        ${dueBars}
+      </div>
+    </div>
+
+    <div class="report-section">
+      <div class="sec-title"><span>جدول کامل</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>نام</th><th>سرمایه</th><th>نرخ</th><th>سود ماهیانه</th><th>مدت</th><th>کل سود</th><th>پرداختی</th><th>مانده</th></tr></thead>
+        <tbody>${tRows}</tbody>
+      </table></div>
+    </div>`;
+}
+
+// ===== Modals =====
+function openAddModal() {
+  editId = null;
+  document.getElementById('invModalTitle').textContent = 'افزودن سرمایه‌گذار جدید';
+  ['f_name','f_phone','f_notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f_capital').value = '';
+  document.getElementById('f_rate').value = '';
+  document.getElementById('f_start').value = todayJalali();
+  document.getElementById('invModal').classList.add('show');
+}
+
+function openEditModal(id) {
+  editId = id;
+  const inv = investors.find(i => i.id === id);
+  document.getElementById('invModalTitle').textContent = 'ویرایش اطلاعات';
+  document.getElementById('f_name').value = inv.name;
+  document.getElementById('f_phone').value = inv.phone || '';
+  document.getElementById('f_capital').value = inv.capital;
+  document.getElementById('f_rate').value = inv.rate;
+  document.getElementById('f_start').value = gregorianToJalaliStr(inv.startDate);
+  document.getElementById('f_notes').value = inv.notes || '';
+  document.getElementById('invModal').classList.add('show');
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+async function saveInvestor() {
+  const name = document.getElementById('f_name').value.trim();
+  const phone = document.getElementById('f_phone').value.trim();
+  const capital = Number(document.getElementById('f_capital').value);
+  const rate = Number(document.getElementById('f_rate').value);
+  const startDateJalali = document.getElementById('f_start').value.trim();
+  const notes = document.getElementById('f_notes').value.trim();
+  if (!name || !capital || !rate || !startDateJalali) { toast('لطفاً فیلدهای ستاره‌دار را پر کنید', true); return; }
+  const startDate = jalaliInputToGregorian(startDateJalali);
+  if (!startDate || startDate.length < 8) { toast('فرمت تاریخ اشتباه است. مثال: 1403/01/01', true); return; }
+  try {
+    if (editId) {
+      const inv = investors.find(i => i.id === editId);
+      await saveInvestorDB({ name, phone, capital, rate, startDate, notes, payments: inv.payments || [] }, editId);
+      closeModal('invModal');
+      if (selectedId) renderDetail();
+      updateStats();
+    } else {
+      await saveInvestorDB({ name, phone, capital, rate, startDate, notes, payments: [] }, null);
+      closeModal('invModal');
+      updateStats();
+    }
+    toast('✅ اطلاعات ذخیره شد');
+  } catch(e) {
+    console.error(e);
+    toast('❌ خطا: ' + (e.code === 'permission-denied' ? 'دسترسی رد شد — Firestore Rules را درست کنید' : e.message), true);
+  }
+}
+
+// ===== Payment =====
+function openPayModal(id) {
+  payInvId = id;
+  const inv = investors.find(i => i.id === id);
+  document.getElementById('p_amount').value = Math.round(monthlyProfit(inv));
+  document.getElementById('p_date').value = todayJalali();
+  document.getElementById('p_note').value = '';
+  document.getElementById('payModal').classList.add('show');
+}
+
+async function savePayment() {
+  const amount = Number(document.getElementById('p_amount').value);
+  const dateJalali = document.getElementById('p_date').value.trim();
+  const note = document.getElementById('p_note').value.trim();
+  if (!amount || !dateJalali) { toast('مبلغ و تاریخ الزامی است', true); return; }
+  const date = jalaliInputToGregorian(dateJalali);
+  if (!date || date.length < 8) { toast('فرمت تاریخ اشتباه است. مثال: 1403/01/01', true); return; }
+  try {
+    const inv = investors.find(i => i.id === payInvId);
+    const payments = [...(inv.payments || []), { id: Date.now().toString(), amount, date, note }];
+    await saveInvestorDB({ ...inv, payments }, payInvId);
+    closeModal('payModal');
+    selectedId = payInvId;
+    renderDetail();
+    updateStats();
+    toast('✅ پرداخت ثبت شد');
+  } catch(e) {
+    toast('❌ خطا: ' + (e.code === 'permission-denied' ? 'دسترسی رد شد — Firestore Rules را درست کنید' : e.message), true);
+  }
+}
+
+async function deletePayment(invId, payId) {
+  if (!confirm('این پرداخت حذف شود؟')) return;
+  const inv = investors.find(i => i.id === invId);
+  const payments = inv.payments.filter(p => p.id !== payId);
+  await saveInvestorDB({ ...inv, payments }, invId);
+  renderDetail();
+  updateStats();
+  toast('پرداخت حذف شد');
+}
+
+async function confirmDelete(id) {
+  if (!confirm('آیا مطمئن هستید؟ تمام اطلاعات این سرمایه‌گذار پاک می‌شود.')) return;
+  await deleteInvestorDB(id);
+  selectedId = investors[0]?.id || null;
+  renderList();
+  updateStats();
+  if (selectedId) renderDetail();
+  else { document.getElementById('emptyState').style.display = 'flex'; document.getElementById('detailPanel').style.display = 'none'; }
+  toast('سرمایه‌گذار حذف شد');
+}
+
+// ===== Toast =====
+function toast(msg, isErr = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isErr ? '#3a1515' : '#1a3a1a';
+  t.style.borderColor = isErr ? '#5a2020' : '#2a5a2a';
+  t.style.color = isErr ? 'var(--red)' : 'var(--green)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ===== Close overlay on bg click =====
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('show'); });
+});
+
+// ===== Jalali Date Picker =====
+const JDP_MONTHS = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+const JDP_DAYS   = ['ش','ی','د','س','چ','پ','ج'];
+
+function jdpMonthLen(y, m) {
+  if (m <= 6) return 31;
+  if (m <= 11) return 30;
+  const leapYears = [1370,1375,1379,1383,1387,1391,1395,1399,1403,1408,1412,1416,1420];
+  return leapYears.includes(y) ? 30 : 29;
+}
+function jdp1stDow(y, m) {
+  const greg = jalaliToGregorian(y, m, 1).split('-');
+  const d = new Date(+greg[0], +greg[1]-1, +greg[2]);
+  return (d.getDay() + 1) % 7; // 0=Sat
+}
+
+let jdpState = {}; // { inputId: {y,m,selY,selM,selD,mode,popupId,allowClear} }
+
+// Close all pickers when clicking outside
+document.addEventListener('mousedown', function(e) {
+  document.querySelectorAll('.jdp-popup.open').forEach(popup => {
+    // Find which input owns this popup
+    const inputId = Object.keys(jdpState).find(k => jdpState[k].popupId === popup.id);
+    const input = inputId ? document.getElementById(inputId) : null;
+    if (!popup.contains(e.target) && e.target !== input) {
+      popup.classList.remove('open');
+    }
+  });
+});
+
+function jdpOpen(inputId, popupId, allowClear) {
+  const popup = document.getElementById(popupId);
+  // Toggle: if already open, close
+  if (popup.classList.contains('open')) {
+    popup.classList.remove('open');
+    return;
+  }
+  // Close any other open picker first
+  document.querySelectorAll('.jdp-popup.open').forEach(p => p.classList.remove('open'));
+
+  const val = document.getElementById(inputId).value;
+  const parsed = parseJalaliInput(val);
+  const t = jToday();
+  jdpState[inputId] = {
+    y: parsed ? parsed.y : t.y,
+    m: parsed ? parsed.m : t.m,
+    selY: parsed ? parsed.y : t.y,
+    selM: parsed ? parsed.m : t.m,
+    selD: parsed ? parsed.d : null,
+    mode: 'day',
+    popupId,
+    allowClear: !!allowClear
+  };
+  jdpRender(inputId);
+  popup.classList.add('open');
+}
+
+function jdpRender(inputId) {
+  const s = jdpState[inputId];
+  const popup = document.getElementById(s.popupId);
+  const todayJ = jToday();
+
+  // Stop ALL clicks inside popup from reaching document mousedown listener
+  // (re-attach once per render to avoid duplicate listeners)
+  popup.onclick = function(e) { e.stopPropagation(); };
+
+  if (s.mode === 'year') {
+    const startY = s.y - (s.y % 12 !== 0 ? s.y % 8 : 0) - 4;
+    let yBtns = '';
+    for (let y = startY; y < startY + 12; y++) {
+      const sel = y === s.selY ? ' sel' : '';
+      yBtns += `<div class="jdp-month-btn${sel}" data-jdp-y="${y}">${toFarsi(y)}</div>`;
+    }
+    popup.innerHTML = `
+      <div class="jdp-nav">
+        <button class="jdp-prev-range">«</button>
+        <span class="jdp-title">${toFarsi(startY)} — ${toFarsi(startY+11)}</span>
+        <button class="jdp-next-range">»</button>
+      </div>
+      <div class="jdp-months" id="${s.popupId}_grid">${yBtns}</div>
+      ${s.allowClear ? `<div style="margin-top:10px;text-align:center"><button class="btn btn-secondary btn-sm jdp-clear-btn">پاک کردن</button></div>` : ''}
+    `;
+    popup.querySelector('.jdp-prev-range').onclick = e => { e.stopPropagation(); s.y -= 12; jdpRender(inputId); };
+    popup.querySelector('.jdp-next-range').onclick = e => { e.stopPropagation(); s.y += 12; jdpRender(inputId); };
+    popup.querySelectorAll('[data-jdp-y]').forEach(el => {
+      el.onclick = e => { e.stopPropagation(); s.selY = +el.dataset.jdpY; s.y = s.selY; s.mode = 'month'; jdpRender(inputId); };
+    });
+    if (s.allowClear) popup.querySelector('.jdp-clear-btn').onclick = e => { e.stopPropagation(); jdpClear(inputId); };
+    return;
+  }
+
+  if (s.mode === 'month') {
+    let mBtns = JDP_MONTHS.map((name, i) =>
+      `<div class="jdp-month-btn${(i+1)===s.selM?' sel':''}" data-jdp-m="${i+1}">${name}</div>`
+    ).join('');
+    popup.innerHTML = `
+      <div class="jdp-nav">
+        <button class="jdp-prev-y">‹</button>
+        <span class="jdp-title jdp-to-year">${toFarsi(s.y)}</span>
+        <button class="jdp-next-y">›</button>
+      </div>
+      <div class="jdp-months">${mBtns}</div>
+      ${s.allowClear ? `<div style="margin-top:10px;text-align:center"><button class="btn btn-secondary btn-sm jdp-clear-btn">پاک کردن</button></div>` : ''}
+    `;
+    popup.querySelector('.jdp-prev-y').onclick   = e => { e.stopPropagation(); s.y--; jdpRender(inputId); };
+    popup.querySelector('.jdp-next-y').onclick   = e => { e.stopPropagation(); s.y++; jdpRender(inputId); };
+    popup.querySelector('.jdp-to-year').onclick  = e => { e.stopPropagation(); s.mode = 'year'; jdpRender(inputId); };
+    popup.querySelectorAll('[data-jdp-m]').forEach(el => {
+      el.onclick = e => { e.stopPropagation(); s.m = +el.dataset.jdpM; s.selM = s.m; s.mode = 'day'; jdpRender(inputId); };
+    });
+    if (s.allowClear) popup.querySelector('.jdp-clear-btn').onclick = e => { e.stopPropagation(); jdpClear(inputId); };
+    return;
+  }
+
+  // Day view
+  const firstDow   = jdp1stDow(s.y, s.m);
+  const daysInMonth = jdpMonthLen(s.y, s.m);
+  let dayHtml = JDP_DAYS.map(d => `<div class="jdp-dow">${d}</div>`).join('');
+  for (let i = 0; i < firstDow; i++) dayHtml += `<div class="jdp-day empty"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = s.y===todayJ.y && s.m===todayJ.m && d===todayJ.d;
+    const isSel   = s.y===s.selY   && s.m===s.selM   && d===s.selD;
+    dayHtml += `<div class="jdp-day${isToday?' today':''}${isSel?' selected':''}" data-jdp-d="${d}">${toFarsi(d)}</div>`;
+  }
+
+  popup.innerHTML = `
+    <div class="jdp-nav">
+      <button class="jdp-prev-m">‹</button>
+      <span class="jdp-title jdp-to-month">${JDP_MONTHS[s.m-1]} ${toFarsi(s.y)}</span>
+      <button class="jdp-next-m">›</button>
+    </div>
+    <div class="jdp-grid">${dayHtml}</div>
+    <div style="display:flex;justify-content:space-between;margin-top:8px">
+      <button class="btn btn-secondary btn-sm jdp-today-btn">امروز</button>
+      ${s.allowClear ? `<button class="btn btn-secondary btn-sm jdp-clear-btn">پاک کردن</button>` : ''}
+    </div>
+  `;
+  popup.querySelector('.jdp-prev-m').onclick    = e => { e.stopPropagation(); if(s.m===1){s.m=12;s.y--;}else s.m--; jdpRender(inputId); };
+  popup.querySelector('.jdp-next-m').onclick    = e => { e.stopPropagation(); if(s.m===12){s.m=1;s.y++;}else s.m++; jdpRender(inputId); };
+  popup.querySelector('.jdp-to-month').onclick  = e => { e.stopPropagation(); s.mode='month'; jdpRender(inputId); };
+  popup.querySelector('.jdp-today-btn').onclick = e => { e.stopPropagation(); const t=jToday(); s.y=t.y; s.m=t.m; jdpSelectDay(inputId,t.d); };
+  popup.querySelectorAll('[data-jdp-d]').forEach(el => {
+    el.onclick = e => { e.stopPropagation(); jdpSelectDay(inputId, +el.dataset.jdpD); };
+  });
+  if (s.allowClear) popup.querySelector('.jdp-clear-btn').onclick = e => { e.stopPropagation(); jdpClear(inputId); };
+}
+
+function jdpSelectDay(inputId, d) {
+  const s   = jdpState[inputId];
+  s.selY = s.y; s.selM = s.m; s.selD = d;
+  const val = `${s.y}/${String(s.m).padStart(2,'0')}/${String(d).padStart(2,'0')}`;
+  document.getElementById(inputId).value = val;
+  document.getElementById(s.popupId).classList.remove('open');
+  if (inputId === 'prFrom') prFrom = val;
+  if (inputId === 'prTo')   prTo   = val;
+}
+
+function jdpClear(inputId) {
+  document.getElementById(inputId).value = '';
+  document.getElementById(jdpState[inputId].popupId).classList.remove('open');
+  if (inputId === 'prFrom') { prFrom = ''; }
+  if (inputId === 'prTo')   { prTo   = ''; }
+}
+
+// Legacy aliases (used in jdpGoToday call)
+function jdpPickDay(id, d) { jdpSelectDay(id, d); }
+</script>
+</body>
+</html>
