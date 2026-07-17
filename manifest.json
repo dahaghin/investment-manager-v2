@@ -1,0 +1,16 @@
+{
+  "name": "Investment Manager V2",
+  "short_name": "Invest V2",
+  "description": "Mobile-first investor and transaction management dashboard.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0d12",
+  "theme_color": "#0a0d12",
+  "dir": "rtl",
+  "lang": "fa",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

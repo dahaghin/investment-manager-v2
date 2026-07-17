@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0a0d12"/>
+  <circle cx="256" cy="256" r="178" fill="#12171f" stroke="#c9954a" stroke-width="18"/>
+  <path d="M154 292c28 62 92 90 156 62 49-22 77-70 72-121" fill="none" stroke="#3ecf6a" stroke-width="34" stroke-linecap="round"/>
+  <path d="M173 226c23-55 78-86 136-74 34 7 61 26 79 52" fill="none" stroke="#e8b870" stroke-width="34" stroke-linecap="round"/>
+  <text x="256" y="298" text-anchor="middle" font-family="Arial, sans-serif" font-size="132" font-weight="800" fill="#e8b870">﷼</text>
+</svg>
