@@ -62,6 +62,7 @@
     <div class="tab" data-tab="cheques" onclick="switchTab('cheques')">🏦 چک‌ها</div>
     <div class="tab" data-tab="report" onclick="switchTab('report')">📊 گزارش کلی</div>
     <div class="tab" data-tab="personal" onclick="switchTab('personal')">🧾 گزارش فردی</div>
+    <div class="tab" data-tab="my-investments" onclick="switchTab('my-investments')">💼 سرمایه‌گذاری‌های من</div>
   </div>
 
   <div class="stats-bar" style="grid-template-columns: repeat(5,1fr)">
@@ -134,6 +135,7 @@
       <div class="page" id="tab-personal">
         <div id="personalContent"></div>
       </div>
+      <div class="page" id="tab-my-investments"><div id="myInvestmentsContent"></div></div>
     </div>
   </div>
 
@@ -142,9 +144,30 @@
     <button class="mobile-nav-item" data-tab="investors" onclick="switchTab('investors')"><span>👥</span><b>Investors</b></button>
     <button class="mobile-nav-item" data-tab="cheques" onclick="switchTab('cheques')"><span>💳</span><b>Transactions</b></button>
     <button class="mobile-nav-item" data-tab="report" onclick="switchTab('report')"><span>📊</span><b>Reports</b></button>
-    <button class="mobile-nav-item" data-tab="personal" onclick="switchTab('personal')"><span>⚙️</span><b>Settings</b></button>
+    <button class="mobile-nav-item" data-tab="personal" onclick="switchTab('personal')"><span>🧾</span><b>Reports</b></button>
+    <button class="mobile-nav-item" data-tab="my-investments" onclick="switchTab('my-investments')"><span>💼</span><b>My Invest.</b></button>
   </nav>
 </div>
+
+<!-- Beta 3 personal investment forms -->
+<div class="overlay" id="myInvModal"><div class="modal">
+<div class="modal-title" id="myInvTitle">سرمایه‌گذاری شخصی جدید</div>
+<div class="fg"><label class="fl">نام پروژه / سرمایه‌گذاری *</label><input class="fi" id="myInvName"></div>
+<div class="fg"><label class="fl">شخص یا شرکت طرف حساب</label><input class="fi" id="myInvParty"></div>
+<div class="frow"><div class="fg"><label class="fl">واحد پول *</label><select class="fi" id="myInvCurrency"><option value="USD">دلار آمریکا (USD)</option><option value="AED">درهم امارات (AED)</option></select></div><div class="fg"><label class="fl">مبلغ سرمایه *</label><input class="fi" id="myInvPrincipal" type="number" min="0" step="0.01"></div></div>
+<div class="frow"><div class="fg"><label class="fl">تاریخ شروع *</label><input class="fi" id="myInvStart" type="date"></div><div class="fg"><label class="fl">تاریخ سررسید</label><input class="fi" id="myInvMaturity" type="date"></div></div>
+<div class="fg"><label class="fl">درصد سود مورد انتظار (اختیاری)</label><input class="fi" id="myInvRate" type="number" min="0" step="0.01"></div>
+<div class="fg"><label class="fl">توضیحات</label><textarea class="fi" id="myInvNotes" rows="2"></textarea></div>
+<div class="m-actions"><button class="btn btn-secondary" onclick="closeModal('myInvModal')">انصراف</button><button class="btn btn-gold" onclick="saveMyInvestment()">ذخیره</button></div>
+</div></div>
+<div class="overlay" id="myEntryModal"><div class="modal">
+<div class="modal-title" id="myEntryTitle">ثبت عملکرد ماهانه</div>
+<div class="fg"><label class="fl">ماه *</label><input class="fi" id="myEntryMonth" type="month"></div>
+<div class="frow"><div class="fg"><label class="fl">سود ایجادشده در ماه</label><input class="fi" id="myEntryProfit" type="number" min="0" step="0.01"></div><div class="fg"><label class="fl">سود واقعاً دریافت‌شده</label><input class="fi" id="myEntryReceived" type="number" min="0" step="0.01"></div></div>
+<div class="fg"><label class="fl">اصل سرمایه برگشتی</label><input class="fi" id="myEntryCapital" type="number" min="0" step="0.01"></div>
+<div class="fg"><label class="fl">توضیحات</label><textarea class="fi" id="myEntryNotes" rows="2"></textarea></div>
+<div class="m-actions"><button class="btn btn-secondary" onclick="closeModal('myEntryModal')">انصراف</button><button class="btn btn-success" onclick="saveMyInvestmentEntry()">ثبت عملکرد</button></div>
+</div></div>
 
 <!-- Add/Edit Modal -->
 <div class="overlay" id="invModal">
@@ -279,6 +302,8 @@
 <script src="js/reports.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/investors.js"></script>
+<script src="js/my-investments.js"></script>
+<link rel="stylesheet" href="css/beta3.css">
 <script src="js/mobile.js"></script>
 <script src="js/app.js"></script>
 </body>
