@@ -23,6 +23,7 @@ function updateStats() {
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+  if (typeof syncMobileNav === 'function') syncMobileNav(tab);
   if (tab === 'dashboard') renderManagementDashboard();
   if (tab === 'report')   renderReport();
   if (tab === 'personal') renderPersonal();
