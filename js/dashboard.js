@@ -26,6 +26,7 @@ function switchTab(tab) {
   if (tab === 'dashboard') renderManagementDashboard();
   if (tab === 'report')   renderReport();
   if (tab === 'personal') renderPersonal();
+  if (tab === 'my-investments') renderMyInvestments();
   if (tab === 'cheques')  renderCheques();
 }
 
