@@ -45,7 +45,8 @@ function renderManagementDashboard() {
       <div class="dash-panel"><div class="chart-title">پرداخت سود ماهانه</div>${renderMonthlyPaidProfitChart()}</div>
       <div class="dash-panel"><div class="chart-title">هشدارها</div>${renderAlerts()}</div>
       <div class="dash-panel"><div class="chart-title">آخرین رویدادهای سرمایه‌گذاران</div>${renderTimeline()}</div>
-    </div>`;
+    </div>
+    ${renderMyInvestmentDashboardSummary()}`;
 }
 function dashboardKpi(label, value, tone, sub) { return `<div class="dash-kpi ${tone}"><div class="ic-label">${label}</div><div class="ic-val">${value}</div><div class="ic-sub">${sub}</div></div>`; }
 function chartPalette(i) { return ['#d4af37','#4cc9f0','#52b788','#e63946','#9b5de5','#f77f00','#00b4d8','#f72585'][i % 8]; }

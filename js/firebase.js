@@ -27,6 +27,7 @@ auth.onAuthStateChanged(user => {
     document.getElementById('headerDate').textContent = jalaliToday();
     ensureV2Settings();
     loadInvestors();
+    loadMyInvestments();
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('app').classList.remove('show');
