@@ -17,8 +17,12 @@ function dollarPerfMoney(value, currency = 'IRR') {
 function dollarPerfRate(value) {
   return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0 }).format(Math.round(Number(value || 0))) + ' تومان';
 }
-function dollarPerfTodayISO() { return todayGregorian(); }
-function dollarPerfTodayJalali() { return todayJalali(); }
+function dollarPerfTodayISO() {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const part = key => parts.find(p => p.type === key)?.value || '';
+  return part('year') + '-' + part('month') + '-' + part('day');
+}
+function dollarPerfTodayJalali() { return dollarPerfISOToJalali(dollarPerfTodayISO()); }
 function dollarPerfDateToISO(value) { return jalaliInputToGregorian(value); }
 function dollarPerfISOToJalali(value) { return gregorianToJalaliStr(value); }
 function dollarPerfSafe(value) { return typeof escapeHTML === 'function' ? escapeHTML(value) : String(value || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
