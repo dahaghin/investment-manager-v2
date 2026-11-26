@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/dashboard.css">
+<link rel="stylesheet" href="css/dollar-performance.css">
 </head>
 <body>
 
@@ -63,6 +64,7 @@
     <div class="tab" data-tab="report" onclick="switchTab('report')">📊 گزارش کلی</div>
     <div class="tab" data-tab="personal" onclick="switchTab('personal')">🧾 گزارش فردی</div>
     <div class="tab" data-tab="my-investments" onclick="switchTab('my-investments')">💼 سرمایه‌گذاری‌های من</div>
+    <div class="tab" data-tab="dollar-performance" onclick="switchTab('dollar-performance')">💵 عملکرد دلاری</div>
   </div>
 
   <div class="stats-bar" style="grid-template-columns: repeat(5,1fr)">
@@ -136,6 +138,7 @@
         <div id="personalContent"></div>
       </div>
       <div class="page" id="tab-my-investments"><div id="myInvestmentsContent"></div></div>
+      <div class="page" id="tab-dollar-performance"><div id="dollarPerformanceContent"></div></div>
     </div>
   </div>
 
@@ -167,6 +170,34 @@
 <div class="fg"><label class="fl">اصل سرمایه برگشتی</label><input class="fi" id="myEntryCapital" type="number" min="0" step="0.01"></div>
 <div class="fg"><label class="fl">توضیحات</label><textarea class="fi" id="myEntryNotes" rows="2"></textarea></div>
 <div class="m-actions"><button class="btn btn-secondary" onclick="closeModal('myEntryModal')">انصراف</button><button class="btn btn-success" onclick="saveMyInvestmentEntry()">ثبت عملکرد</button></div>
+</div></div>
+
+
+<!-- Beta 4: Dollar performance modals -->
+<div class="overlay" id="dpFlowModal"><div class="modal">
+  <div class="modal-title">ثبت واریز یا برداشت سرمایه تومانی</div>
+  <div class="fg"><label class="fl">نوع تراکنش</label><select class="fi" id="dpFlowType"><option value="deposit">واریز / افزایش سرمایه</option><option value="withdrawal">برداشت از سرمایه</option></select></div>
+  <div class="fg"><label class="fl">مبلغ (تومان) *</label><input class="fi" id="dpFlowAmount" type="number" min="1" step="1000"></div>
+  <div class="fg"><label class="fl">تاریخ شمسی *</label><div class="jdp-wrap"><input class="fi jdp-input" id="dpFlowDate" readonly placeholder="انتخاب تاریخ" onclick="jdpOpen('dpFlowDate','jdp_dpFlowDate')"><div class="jdp-popup" id="jdp_dpFlowDate"></div></div></div>
+  <div class="fg"><label class="fl">نرخ دلار همان روز (تومان) — اختیاری</label><input class="fi" id="dpFlowRate" type="number" min="1" placeholder="خالی بگذار تا نرخ تاریخی خودکار دریافت شود"></div>
+  <div class="dp-modal-help">اگر نرخ تاریخی منبع در دسترس نباشد، باید نرخ همان روز را دستی وارد کنی.</div>
+  <div class="fg"><label class="fl">توضیحات</label><textarea class="fi" id="dpFlowNote" rows="2"></textarea></div>
+  <div class="m-actions"><button class="btn btn-secondary" onclick="closeModal('dpFlowModal')">انصراف</button><button class="btn btn-gold" onclick="saveDollarFlow()">ثبت تراکنش</button></div>
+</div></div>
+<div class="overlay" id="dpValModal"><div class="modal">
+  <div class="modal-title">ثبت ارزش روز سرمایه</div>
+  <div class="fg"><label class="fl">ارزش کل سرمایه به تومان *</label><input class="fi" id="dpValAmount" type="number" min="0" step="1000"></div>
+  <div class="fg"><label class="fl">تاریخ ارزش‌گذاری شمسی *</label><div class="jdp-wrap"><input class="fi jdp-input" id="dpValDate" readonly placeholder="انتخاب تاریخ" onclick="jdpOpen('dpValDate','jdp_dpValDate')"><div class="jdp-popup" id="jdp_dpValDate"></div></div></div>
+  <div class="fg"><label class="fl">نرخ دلار همان روز (تومان) — اختیاری</label><input class="fi" id="dpValRate" type="number" min="1" placeholder="خالی بگذار تا نرخ خودکار دریافت شود"></div>
+  <div class="dp-modal-help">این عدد ارزش کل دارایی/سرمایه‌ای است که می‌خواهی عملکردش را با دلار مقایسه کنی؛ نه فقط مبلغ اولیه.</div>
+  <div class="fg"><label class="fl">توضیحات</label><textarea class="fi" id="dpValNote" rows="2"></textarea></div>
+  <div class="m-actions"><button class="btn btn-secondary" onclick="closeModal('dpValModal')">انصراف</button><button class="btn btn-gold" onclick="saveDollarValuation()">ثبت ارزش</button></div>
+</div></div>
+<div class="overlay" id="dpRateModal"><div class="modal">
+  <div class="modal-title">اصلاح دستی نرخ دلار آزاد امروز</div>
+  <div class="fg"><label class="fl">نرخ دلار (تومان) *</label><input class="fi" id="dpManualRate" type="number" min="1"></div>
+  <div class="dp-modal-help">نرخ دستی برای محاسبات امروز استفاده می‌شود و نرخ دریافتی API نیز به‌عنوان مرجع نگه‌داری می‌شود.</div>
+  <div class="m-actions"><button class="btn btn-secondary" onclick="closeModal('dpRateModal')">انصراف</button><button class="btn btn-gold" onclick="saveDollarManualRate()">ذخیره نرخ</button></div>
 </div></div>
 
 <!-- Add/Edit Modal -->
@@ -303,6 +334,7 @@
 <script src="js/backup.js"></script>
 <script src="js/investors.js"></script>
 <script src="js/my-investments.js"></script>
+<script src="js/dollar-performance.js"></script>
 <link rel="stylesheet" href="css/beta3.css">
 <script src="js/mobile.js"></script>
 <script src="js/app.js"></script>
