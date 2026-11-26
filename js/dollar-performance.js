@@ -51,6 +51,10 @@ async function dollarPerfLoadHistory() {
 async function dollarPerfRateForDate(isoDate, manualRate) {
   if (Number(manualRate) > 0) return { rate: Number(manualRate), source: 'manual', manual: true };
   if (isoDate === dollarPerfTodayISO() && dollarPerfMarket && !dollarPerfMarket.stale) {
+    const todaySnapshot = dollarPerfSnapshots.find(s => s.kind === 'rate' && s.date === isoDate);
+    if (todaySnapshot?.manualRate && Number(todaySnapshot.effectiveRate) > 0) {
+      return { rate: Number(todaySnapshot.effectiveRate), source: 'manual override', manual: true };
+    }
     return { rate: dollarPerfMarket.rate, source: dollarPerfMarket.source, manual: false };
   }
   const history = await dollarPerfLoadHistory();
@@ -205,11 +209,12 @@ function dollarPerfCompute(from, to) {
   const withdrawalsUSD = flows.filter(x => x.type === 'withdrawal').reduce((s,x) => s + Number(x.amountToman) / Number(x.fxRateToman), 0);
   const depositsToman = flows.filter(x => x.type === 'deposit').reduce((s,x) => s + Number(x.amountToman), 0);
   const withdrawalsToman = flows.filter(x => x.type === 'withdrawal').reduce((s,x) => s + Number(x.amountToman), 0);
-  const profitUSD = endUSD - startUSD - depositsUSD + withdrawalsUSD;
-  const profitToman = endToman - startToman - depositsToman + withdrawalsToman;
+  const hasEnd = !!end;
+  const profitUSD = hasEnd ? endUSD - startUSD - depositsUSD + withdrawalsUSD : 0;
+  const profitToman = hasEnd ? endToman - startToman - depositsToman + withdrawalsToman : 0;
   const basisUSD = startUSD + depositsUSD;
   const basisToman = startToman + depositsToman;
-  return { start, end, startToman, endToman, startUSD, endUSD, depositsUSD, withdrawalsUSD, depositsToman, withdrawalsToman, profitUSD, profitToman, basisUSD, basisToman, percentUSD: basisUSD ? profitUSD / basisUSD * 100 : 0, percentToman: basisToman ? profitToman / basisToman * 100 : 0 };
+  return { start, end, hasEnd, startToman, endToman, startUSD, endUSD, depositsUSD, withdrawalsUSD, depositsToman, withdrawalsToman, profitUSD, profitToman, basisUSD, basisToman, percentUSD: basisUSD ? profitUSD / basisUSD * 100 : 0, percentToman: basisToman ? profitToman / basisToman * 100 : 0 };
 }
 function dollarPerfSparkline() {
   const values = dollarPerfSnapshots.filter(s => s.kind === 'valuation' && Number(s.fxRateToman) > 0).slice(-12);
@@ -230,14 +235,14 @@ function renderDollarPerformance() {
   const report = dollarPerfCompute(fromISO, toISO);
   const latestValuation = dollarPerfGetValuation(toISO, true);
   const latestRateSnapshot = [...dollarPerfSnapshots].filter(s=>s.kind==='rate' && s.date<=toISO).sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
-  const currentRate = toISO === today ? dollarPerfMarket?.rate : dollarPerfGetEffectiveRate(latestRateSnapshot);
+  const currentRate = toISO === today ? dollarPerfGetEffectiveRate(latestRateSnapshot) || dollarPerfMarket?.rate : dollarPerfGetEffectiveRate(latestRateSnapshot);
   const currentRateStale = toISO === today && dollarPerfMarket?.stale;
   const lastValueUSD = latestValuation ? Number(latestValuation.valueToman) / Number(latestValuation.fxRateToman) : 0;
   const pnlClass = report.profitUSD >= 0 ? 'positive' : 'negative';
   const txRows = [...dollarPerfTransactions].reverse().slice(0,12).map(t => '<tr><td>' + dollarPerfSafe(t.jalaliDate || dollarPerfISOToJalali(t.date)) + '</td><td>' + (t.type==='deposit'?'افزایش سرمایه':'برداشت') + '</td><td>' + dollarPerfMoney(t.amountToman) + '</td><td>' + dollarPerfMoney(Number(t.amountToman)/Number(t.fxRateToman),'USD') + '</td><td>' + dollarPerfRate(t.fxRateToman) + '</td></tr>').join('');
   const snapRows = [...dollarPerfSnapshots].filter(s=>s.kind==='valuation').reverse().slice(0,8).map(s=>'<tr><td>'+dollarPerfSafe(s.jalaliDate || dollarPerfISOToJalali(s.date))+'</td><td>'+dollarPerfMoney(s.valueToman)+'</td><td>'+dollarPerfRate(s.fxRateToman)+'</td><td>'+dollarPerfMoney(Number(s.valueToman)/Number(s.fxRateToman),'USD')+'</td></tr>').join('');
   el.innerHTML = '<div class="dp-header"><div><div class="dp-eyebrow">PORTFOLIO · USD BENCHMARK</div><h2>عملکرد دلاری سرمایه</h2><p>آیا رشد سرمایه‌ات از رشد دلار آزاد جلو زده است؟</p></div><div class="dp-header-actions"><button class="btn btn-secondary" onclick="loadDollarPerformance()">↻ به‌روزرسانی نرخ</button><button class="btn btn-gold" onclick="openDollarValuationModal()">ثبت ارزش فعلی سرمایه</button></div></div>' +
-  '<div class="dp-rate-strip"><div><span>دلار آزاد امروز</span><strong>' + (dollarPerfMarket ? dollarPerfRate(dollarPerfMarket.rate) : '—') + '</strong><small>' + (dollarPerfMarket?.timestampJalali || 'زمان نرخ در دسترس نیست') + '</small></div><div class="dp-rate-source"><span>منبع داده</span><b>Iran Market Data · TGJU</b><small>' + (currentRateStale ? 'هشدار: داده قدیمی است' : 'به‌روزرسانی دوره‌ای حدود ۳۰ دقیقه') + '</small></div><button class="btn btn-secondary btn-sm" onclick="document.getElementById(\'dpManualRate\').value=\'' + (dollarPerfMarket?.rate || '') + '\';document.getElementById(\'dpRateModal\').classList.add(\'show\')">اصلاح نرخ امروز</button></div>' +
+  '<div class="dp-rate-strip"><div><span>دلار آزاد امروز</span><strong>' + (currentRate ? dollarPerfRate(currentRate) : '—') + '</strong><small>' + (dollarPerfMarket?.timestampJalali || 'زمان نرخ در دسترس نیست') + '</small></div><div class="dp-rate-source"><span>منبع داده</span><b>Iran Market Data · TGJU</b><small>' + (currentRateStale ? 'هشدار: داده قدیمی است' : 'به‌روزرسانی دوره‌ای حدود ۳۰ دقیقه') + '</small></div><button class="btn btn-secondary btn-sm" onclick="document.getElementById(\'dpManualRate\').value=\'' + (dollarPerfMarket?.rate || '') + '\';document.getElementById(\'dpRateModal\').classList.add(\'show\')">اصلاح نرخ امروز</button></div>' +
   '<div class="dp-filters"><div><label>از تاریخ شمسی</label><div class="jdp-wrap"><input class="fi jdp-input" id="dpFrom" value="' + dollarPerfSafe(from) + '" readonly onclick="jdpOpen(\'dpFrom\',\'jdp_dpFrom\')"><div class="jdp-popup" id="jdp_dpFrom"></div></div></div><div><label>تا تاریخ شمسی</label><div class="jdp-wrap"><input class="fi jdp-input" id="dpTo" value="' + dollarPerfSafe(to) + '" readonly onclick="jdpOpen(\'dpTo\',\'jdp_dpTo\')"><div class="jdp-popup" id="jdp_dpTo"></div></div></div><button class="btn btn-secondary" onclick="renderDollarPerformance()">اعمال بازه</button><button class="btn btn-success" onclick="openDollarFlowModal()">+ ثبت واریز / برداشت</button></div>' +
   '<div class="dp-kpis"><article class="dp-kpi dp-kpi-main"><span>ارزش فعلی سرمایه به دلار</span><strong>' + (latestValuation ? dollarPerfMoney(lastValueUSD,'USD') : '—') + '</strong><small>' + (latestValuation ? 'ارزش تومانی ثبت‌شده ÷ نرخ همان روز' : 'ابتدا ارزش فعلی سرمایه را ثبت کن') + '</small></article><article class="dp-kpi"><span>سود / زیان دلاری در بازه</span><strong class="' + pnlClass + '">' + (report.profitUSD>=0?'+':'') + dollarPerfMoney(report.profitUSD,'USD') + '</strong><small class="' + pnlClass + '">' + (report.percentUSD>=0?'+':'') + report.percentUSD.toFixed(2) + '% نسبت به سرمایه مبنا</small></article><article class="dp-kpi"><span>سود / زیان تومانی در بازه</span><strong class="' + (report.profitToman>=0?'positive':'negative') + '">' + (report.profitToman>=0?'+':'') + dollarPerfMoney(report.profitToman) + '</strong><small>برای مقایسه با بازده دلاری</small></article><article class="dp-kpi"><span>نرخ دلار مبنا</span><strong>' + (currentRate ? dollarPerfRate(currentRate) : '—') + '</strong><small>نرخ آزاد بازار ایران</small></article></div>' +
   '<div class="dp-grid"><section class="dp-panel dp-performance"><div class="dp-panel-title"><div><h3>نتیجه عملکرد در بازه انتخابی</h3><p>محاسبه با لحاظ واریز و برداشت‌های ثبت‌شده</p></div><span class="dp-period">' + dollarPerfSafe(from) + ' تا ' + dollarPerfSafe(to) + '</span></div><div class="dp-comparison"><div><small>ارزش ابتدای بازه</small><b>' + dollarPerfMoney(report.startUSD,'USD') + '</b></div><div><small>واریزهای دلاری</small><b>' + dollarPerfMoney(report.depositsUSD,'USD') + '</b></div><div><small>برداشت‌های دلاری</small><b>' + dollarPerfMoney(report.withdrawalsUSD,'USD') + '</b></div><div><small>ارزش پایان بازه</small><b>' + dollarPerfMoney(report.endUSD,'USD') + '</b></div></div><div class="dp-formula">سود دلاری = ارزش پایان − ارزش شروع − واریزها + برداشت‌ها</div></section><section class="dp-panel dp-chart-panel"><div class="dp-panel-title"><div><h3>روند ارزش دلاری سرمایه</h3><p>بر اساس ثبت‌های ارزش‌گذاری</p></div></div>' + dollarPerfSparkline() + '</section></div>' +
