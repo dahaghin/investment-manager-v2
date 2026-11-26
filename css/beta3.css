@@ -1,0 +1,10 @@
+/* Beta 3 — personal investments */
+.currency-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:14px 0}
+.currency-summary{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:16px;display:grid;gap:7px}
+.currency-summary b{color:var(--gold-light);font-size:13px}.currency-summary strong{font-size:23px;color:var(--green)}.currency-summary span,.currency-summary small{color:var(--text-muted);font-size:11px}
+.personal-investment-list{display:grid;gap:14px;margin-top:18px}.personal-investment-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px}
+.personal-investment-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}.personal-investment-head h3{font-size:16px;color:var(--gold-light)}.personal-investment-head p{font-size:12px;color:var(--text-muted);margin-top:4px}
+.investment-status{font-size:11px;padding:4px 10px;border-radius:20px;background:rgba(62,207,106,.12);color:var(--green)}
+.personal-investment-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.personal-investment-metrics>div{background:var(--surface2);padding:12px;border-radius:10px;display:grid;gap:5px;min-width:0}.personal-investment-metrics small{font-size:10px;color:var(--text-muted)}.personal-investment-metrics b{font-size:13px;overflow-wrap:anywhere}
+.personal-investment-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.investment-history{margin-top:14px;border-top:1px solid var(--border);padding-top:12px;font-size:12px}.investment-history summary{cursor:pointer;color:var(--gold-light)}
+.personal-investment-summary{margin-top:16px}@media(max-width:760px){.currency-summary-grid{grid-template-columns:1fr}.personal-investment-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.personal-investment-card{padding:13px}.personal-investment-head{flex-direction:column}}
