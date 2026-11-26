@@ -232,6 +232,10 @@ function renderDollarPerformance() {
   const to = document.getElementById('dpTo')?.value || dollarPerfTodayJalali();
   const fromISO = dollarPerfDateToISO(from);
   const toISO = dollarPerfDateToISO(to);
+  if (fromISO && toISO && fromISO > toISO) {
+    el.innerHTML = '<div class="dp-error">تاریخ شروع باید قبل از تاریخ پایان باشد.</div>';
+    return;
+  }
   const report = dollarPerfCompute(fromISO, toISO);
   const latestValuation = dollarPerfGetValuation(toISO, true);
   const latestRateSnapshot = [...dollarPerfSnapshots].filter(s=>s.kind==='rate' && s.date<=toISO).sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
