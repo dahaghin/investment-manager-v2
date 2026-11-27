@@ -4,6 +4,7 @@ function openAddModal() {
   document.getElementById('invModalTitle').textContent = 'افزودن سرمایه‌گذار جدید';
   ['f_name','f_phone','f_notes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f_capital').value = '';
+  document.getElementById('f_currency').value = 'IRT';
   document.getElementById('f_rate').value = '';
   document.getElementById('f_start').value = todayJalali();
   document.getElementById('invModal').classList.add('show');
@@ -16,6 +17,7 @@ function openEditModal(id) {
   document.getElementById('f_name').value = inv.fullName || inv.name;
   document.getElementById('f_phone').value = inv.phone || '';
   document.getElementById('f_capital').value = inv.capital;
+  document.getElementById('f_currency').value = inv.currency || 'IRT';
   document.getElementById('f_rate').value = inv.monthlyInterestRate ?? inv.rate;
   document.getElementById('f_start').value = gregorianToJalaliStr(inv.startDate);
   document.getElementById('f_notes').value = inv.notes || '';
@@ -28,10 +30,11 @@ async function saveInvestor() {
   const name = document.getElementById('f_name').value.trim();
   const phone = document.getElementById('f_phone').value.trim();
   const capital = Number(document.getElementById('f_capital').value);
+  const currency = document.getElementById('f_currency').value;
   const rate = Number(document.getElementById('f_rate').value);
   const startDateJalali = document.getElementById('f_start').value.trim();
   const notes = document.getElementById('f_notes').value.trim();
-  if (!name || !capital || !rate || !startDateJalali) { toast('لطفاً فیلدهای ستاره‌دار را پر کنید', true); return; }
+  if (!name || !capital || !rate || !startDateJalali || !['IRT','USD','AED'].includes(currency)) { toast('لطفاً فیلدهای ستاره‌دار را پر کنید', true); return; }
   const startDate = jalaliInputToGregorian(startDateJalali);
   if (!startDate || startDate.length < 8) { toast('فرمت تاریخ اشتباه است. مثال: 1403/01/01', true); return; }
   try {
@@ -39,7 +42,7 @@ async function saveInvestor() {
       const inv = investors.find(i => i.id === editId);
       const currentTransactions = getInvestorTransactions(inv);
       const initialDeposit = currentTransactions.find(t => t.type === 'capital_deposit');
-      await saveInvestorDB({ ...inv, fullName: name, name, phone, monthlyInterestRate: rate, rate, startDate, notes }, editId);
+      await saveInvestorDB({ ...inv, fullName: name, name, phone, monthlyInterestRate: rate, rate, currency, startDate, notes }, editId);
       if (initialDeposit && (Number(initialDeposit.amount) !== capital || initialDeposit.date !== startDate)) {
         await saveTransactionDB({ ...initialDeposit, amount: capital, date: startDate, description: initialDeposit.description || 'سرمایه اولیه' });
         await loadInvestors();
@@ -49,7 +52,7 @@ async function saveInvestor() {
       updateStats();
     } else {
       const tmpId = `pending-${Date.now()}`;
-      await saveInvestorDB({ fullName: name, name, phone, capital, monthlyInterestRate: rate, rate, startDate, notes, status: 'Active', transactions: [newTransaction(tmpId, 'capital_deposit', capital, startDate, 'سرمایه اولیه')] }, null);
+      await saveInvestorDB({ fullName: name, name, phone, capital, monthlyInterestRate: rate, rate, currency, startDate, notes, status: 'Active', transactions: [newTransaction(tmpId, 'capital_deposit', capital, startDate, 'سرمایه اولیه')] }, null);
       closeModal('invModal');
       updateStats();
     }
