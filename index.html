@@ -167,7 +167,10 @@
 <div class="overlay" id="myEntryModal"><div class="modal">
 <div class="modal-title" id="myEntryTitle">ثبت عملکرد ماهانه</div>
 <div class="fg"><label class="fl">ماه *</label><input class="fi" id="myEntryMonth" type="month"></div>
-<div class="frow"><div class="fg"><label class="fl">سود ایجادشده در ماه</label><input class="fi" id="myEntryProfit" type="number" min="0" step="0.01"></div><div class="fg"><label class="fl">سود واقعاً دریافت‌شده</label><input class="fi" id="myEntryReceived" type="number" min="0" step="0.01"></div></div>
+<div class="frow"><div class="fg"><label class="fl">درصد سود این ماه *</label><input class="fi" id="myEntryRate" type="number" min="0" step="0.01" oninput="updateMyEntryCalculatedProfit()"></div><div class="fg"><label class="fl">مبنای محاسبه سود</label><input class="fi" id="myEntryBasis" readonly></div></div>
+<div class="frow"><div class="fg"><label class="fl">سود محاسبه‌شده این ماه</label><input class="fi" id="myEntryProfit" type="number" min="0" step="0.01"></div><div class="fg"><label class="fl">سود واقعاً دریافت‌شده</label><input class="fi" id="myEntryReceived" type="number" min="0" step="0.01"></div></div>
+<div class="dp-modal-help">سود به‌صورت خودکار از مبنای سرمایه × درصد ماهانه محاسبه می‌شود. در صورت نیاز می‌توانی مبلغ واقعی را اصلاح کنی.</div>
+<div class="frow"><div class="fg"><label class="fl">سود دریافتی و سرمایه‌گذاری مجدد</label><input class="fi" id="myEntryReinvested" type="number" min="0" step="0.01" value="0"></div><div class="fg"><label class="fl">سود دریافت‌نشده و اضافه‌شده به اصل</label><input class="fi" id="myEntryCapitalized" type="number" min="0" step="0.01" value="0"></div></div>
 <div class="fg"><label class="fl">اصل سرمایه برگشتی</label><input class="fi" id="myEntryCapital" type="number" min="0" step="0.01"></div>
 <div class="fg"><label class="fl">توضیحات</label><textarea class="fi" id="myEntryNotes" rows="2"></textarea></div>
 <div class="m-actions"><button class="btn btn-secondary" onclick="closeModal('myEntryModal')">انصراف</button><button class="btn btn-success" onclick="saveMyInvestmentEntry()">ثبت عملکرد</button></div>
