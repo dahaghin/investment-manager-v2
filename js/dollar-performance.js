@@ -39,10 +39,26 @@ function dollarPerfDateToISO(value) {
 function dollarPerfISOToJalali(value) { return gregorianToJalaliStr(value); }
 function dollarPerfSafe(value) { return typeof escapeHTML === 'function' ? escapeHTML(value) : String(value || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+async function dollarPerfFetchJson(urls, cache = 'no-store') {
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 9000);
+      const response = await fetch(url, { cache, signal: controller.signal });
+      clearTimeout(timeout);
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return await response.json();
+    } catch (e) { lastError = e; }
+  }
+  throw new Error('اتصال به منبع نرخ دلار برقرار نشد: ' + (lastError?.message || 'unknown'));
+}
 async function dollarPerfFetchMarket() {
-  const response = await fetch(DOLLAR_MARKET_LATEST_URL, { cache: 'no-store' });
-  if (!response.ok) throw new Error('منبع نرخ دلار پاسخ نداد (' + response.status + ')');
-  const payload = await response.json();
+  const payload = await dollarPerfFetchJson([
+    DOLLAR_MARKET_LATEST_URL,
+    'https://cdn.jsdelivr.net/gh/iran-market/iran-market.github.io@main/data/popular.json',
+    'https://iran-market.github.io/data/popular.json'
+  ]);
   const item = (payload.data || []).find(x => x.symbol === 'USD_IRR_FREE');
   if (!item || !Number(item.price) || item.currency !== 'IRT') throw new Error('ساختار نرخ دلار معتبر نیست');
   dollarPerfMarket = {
@@ -58,9 +74,11 @@ async function dollarPerfFetchMarket() {
 }
 async function dollarPerfLoadHistory() {
   if (dollarPerfHistory) return dollarPerfHistory;
-  const response = await fetch(DOLLAR_MARKET_HISTORY_URL, { cache: 'force-cache' });
-  if (!response.ok) throw new Error('تاریخچه نرخ دلار در دسترس نیست');
-  const payload = await response.json();
+  const payload = await dollarPerfFetchJson([
+    DOLLAR_MARKET_HISTORY_URL,
+    'https://cdn.jsdelivr.net/gh/iran-market/iran-market.github.io@main/data/history/USD_IRR_FREE.json',
+    'https://iran-market.github.io/data/history/USD_IRR_FREE.json'
+  ], 'force-cache');
   dollarPerfHistory = Array.isArray(payload.data) ? payload.data : [];
   return dollarPerfHistory;
 }
@@ -121,10 +139,19 @@ async function loadDollarPerformance() {
   const el = document.getElementById('dollarPerformanceContent');
   if (el) el.innerHTML = '<div class="dp-loading">در حال دریافت نرخ دلار آزاد و اطلاعات سرمایه…</div>';
   try {
-    await dollarPerfFetchMarket();
-    await dollarPerfCaptureDailyRate();
+    let marketError = null;
+    try {
+      await dollarPerfFetchMarket();
+      await dollarPerfCaptureDailyRate();
+    } catch (e) {
+      marketError = e;
+      console.warn('USD market feed unavailable; showing saved data:', e);
+    }
     await dollarPerfLoadRecords();
     renderDollarPerformance();
+    if (marketError && el) {
+      el.insertAdjacentHTML('afterbegin', '<div class="dp-error">دریافت نرخ زنده ممکن نشد؛ اطلاعات ذخیره‌شده نمایش داده شده است. برای ادامه می‌توانی نرخ امروز را دستی وارد کنی. (' + dollarPerfSafe(marketError.message) + ')</div>');
+    }
   } catch (e) {
     if (el) el.innerHTML = '<div class="dp-error">دریافت اطلاعات با خطا مواجه شد: ' + dollarPerfSafe(e.message) + '<button class="btn btn-secondary" onclick="loadDollarPerformance()">تلاش دوباره</button></div>';
   } finally {
