@@ -119,7 +119,7 @@ async function saveMyInvestmentEntry() {
   const receivedAmount = Number(document.getElementById('myEntryReceived').value || 0);
   const capitalReturned = Number(document.getElementById('myEntryCapital').value || 0);
   const notes = document.getElementById('myEntryNotes').value.trim();
-  if (!month || ratePercent < 0 || profitAmount < 0 || receivedAmount < 0 || capitalReturned < 0 || Number(document.getElementById('myEntryReinvested')?.value || 0) < 0 || Number(document.getElementById('myEntryCapitalized')?.value || 0) < 0 || receivedAmount + Number(document.getElementById('myEntryCapitalized')?.value || 0) > profitAmount + 0.005 || (!profitAmount && !receivedAmount && !capitalReturned)) {
+  if (!month || ratePercent < 0 || profitAmount < 0 || receivedAmount < 0 || capitalReturned < 0 || Number(document.getElementById('myEntryReinvested')?.value || 0) < 0 || Number(document.getElementById('myEntryCapitalized')?.value || 0) < 0 || Number(document.getElementById('myEntryReinvested')?.value || 0) > receivedAmount + 0.005 || receivedAmount + Number(document.getElementById('myEntryCapitalized')?.value || 0) > profitAmount + 0.005 || (!profitAmount && !receivedAmount && !capitalReturned)) {
     toast('ماه و حداقل یکی از مبالغ را وارد کنید', true); return;
   }
   const existing = myInvestmentEntries.find(e => e.investmentId === item.id && e.month === month);
