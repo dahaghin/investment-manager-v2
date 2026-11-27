@@ -91,6 +91,7 @@ function investorFromDoc(doc, tx = []) {
     name: data.fullName || data.name || '',
     phone: data.phone || '',
     monthlyInterestRate: Number(data.monthlyInterestRate ?? data.rate ?? 0),
+    currency: ['IRT','USD','AED'].includes(data.currency) ? data.currency : 'IRT',
     rate: Number(data.monthlyInterestRate ?? data.rate ?? 0),
     status: data.status || 'Active',
     startDate: normalizeISODate(data.startDate || firstDeposit?.date || todayGregorian()),
