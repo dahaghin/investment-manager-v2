@@ -29,6 +29,7 @@ function switchTab(tab) {
   if (tab === 'personal') renderPersonal();
   if (tab === 'my-investments') renderMyInvestments();
   if (tab === 'dollar-performance') loadDollarPerformance();
+  if (tab === 'investor-dollar') loadInvestorDollarPerformance();
   if (tab === 'cheques')  renderCheques();
 }
 
