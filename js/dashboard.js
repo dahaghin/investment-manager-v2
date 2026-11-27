@@ -45,7 +45,7 @@ function renderList() {
       <div class="avatar">${inv.name.charAt(0)}</div>
       <div class="inv-info">
         <div class="inv-name">${inv.name}</div>
-        <div class="inv-amt">${formatMoney(activeCapital(inv))} تومان</div>
+        <div class="inv-amt">${investorMoney(inv, activeCapital(inv))}</div>
       </div>
       <div class="inv-badge">${toFarsi(inv.rate)}٪</div>
     </div>
@@ -87,7 +87,7 @@ function renderDetail() {
     : [...payments].reverse().map((p,i) => `
       <tr>
         <td>${toFarsi(payments.length - i)}</td>
-        <td>${formatMoney(p.amount)} تومان</td>
+        <td>${investorMoney(inv, p.amount)}</td>
         <td>${milToJalali(p.date)}</td>
         <td>${p.note || '—'}</td>
         <td><button class="btn btn-danger btn-sm" onclick="deletePayment('${inv.id}','${p.id}')">حذف</button></td>
@@ -113,11 +113,11 @@ function renderDetail() {
 
     <div class="info-grid">
       <div class="ic"><div class="ic-label">Active Capital</div><div class="ic-val gold">${formatMoney(activeCapital(inv))}</div><div class="ic-sub">سرمایه فعال</div></div>
-      <div class="ic"><div class="ic-label">Current Account Value</div><div class="ic-val gold">${formatMoney(Math.round(curBal))}</div><div class="ic-sub">اصل + سود انباشته</div></div>
-      <div class="ic"><div class="ic-label">Next Profit Date</div><div class="ic-val green">${nextDate ? milToJalali(nextDate) : '—'}</div><div class="ic-sub">سود بعدی: ${formatMoney(Math.round(mp))}</div></div>
-      <div class="ic"><div class="ic-label">Accumulated Profit (${toFarsi(months)} ماه)</div><div class="ic-val blue">${formatMoney(Math.round(tp))}</div><div class="ic-sub">از ${milToJalali(inv.startDate)}</div></div>
-      <div class="ic"><div class="ic-label">Paid Profit</div><div class="ic-val green">${formatMoney(paid)}</div><div class="ic-sub">سود پرداخت‌شده</div></div>
-      <div class="ic"><div class="ic-label">Status</div><div class="ic-val ${invStatus === 'Overdue' ? 'red' : invStatus === 'Settled' ? 'green' : 'blue'}">${statusFa}</div><div class="ic-sub">سود پرداخت‌نشده: ${formatMoney(Math.round(due))}</div></div>
+      <div class="ic"><div class="ic-label">Current Account Value</div><div class="ic-val gold">${investorMoney(inv, Math.round(curBal))}</div><div class="ic-sub">اصل + سود انباشته</div></div>
+      <div class="ic"><div class="ic-label">Next Profit Date</div><div class="ic-val green">${nextDate ? milToJalali(nextDate) : '—'}</div><div class="ic-sub">سود بعدی: ${investorMoney(inv, Math.round(mp))}</div></div>
+      <div class="ic"><div class="ic-label">Accumulated Profit (${toFarsi(months)} ماه)</div><div class="ic-val blue">${investorMoney(inv, Math.round(tp))}</div><div class="ic-sub">از ${milToJalali(inv.startDate)}</div></div>
+      <div class="ic"><div class="ic-label">Paid Profit</div><div class="ic-val green">${investorMoney(inv, paid)}</div><div class="ic-sub">سود پرداخت‌شده</div></div>
+      <div class="ic"><div class="ic-label">Status</div><div class="ic-val ${invStatus === 'Overdue' ? 'red' : invStatus === 'Settled' ? 'green' : 'blue'}">${statusFa}</div><div class="ic-sub">سود پرداخت‌نشده: ${investorMoney(inv, Math.round(due))}</div></div>
     </div>
 
     <div class="section">
@@ -155,7 +155,7 @@ function renderTransactionRows(inv) {
   return [...rows].reverse().map(t => `
     <tr>
       <td>${transactionTypeLabel(t.type)}</td>
-      <td>${formatMoney(t.amount)} تومان</td>
+      <td>${investorMoney(inv, t.amount)}</td>
       <td>${milToJalali(t.date)}</td>
       <td>${t.description || '—'}</td>
     </tr>`).join('');
