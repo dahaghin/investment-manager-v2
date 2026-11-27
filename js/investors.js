@@ -68,6 +68,7 @@ async function saveInvestor() {
 function openPayModal(id) {
   payInvId = id;
   const inv = investors.find(i => i.id === id);
+  document.getElementById('p_amount').previousElementSibling.textContent = 'مبلغ پرداختی (' + investorCurrencyLabel(inv.currency || 'IRT') + ') *';
   document.getElementById('p_amount').value = Math.round(monthlyProfit(inv));
   document.getElementById('p_date').value = todayJalali();
   document.getElementById('p_note').value = '';
@@ -112,6 +113,8 @@ async function deletePayment(invId, payId) {
 // ===== General Transactions =====
 function openTransactionModal(id, type) {
   payInvId = id;
+  const inv = investors.find(i => i.id === id);
+  document.getElementById('tx_amount').previousElementSibling.textContent = 'مبلغ (' + investorCurrencyLabel(inv?.currency || 'IRT') + ') *';
   document.getElementById('tx_type').value = type || 'capital_deposit';
   document.getElementById('tx_amount').value = '';
   document.getElementById('tx_date').value = todayJalali();
