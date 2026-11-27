@@ -123,12 +123,12 @@ function renderPRTable() {
   const summaryHTML = `
     <div class="pr-print-header">گزارش مالی — ${inv.name}${fromJ?` — از ${toFarsi(fromJ.y)}/${toFarsi(fromJ.m)}/${toFarsi(fromJ.d)}`:''}${` تا ${toFarsi(toJ.y)}/${toFarsi(toJ.m)}/${toFarsi(toJ.d)}`}</div>
     <div class="pr-summary-strip">
-      <div class="ic"><div class="ic-label">سرمایه</div><div class="ic-val gold">${formatMoney(activeCapital(inv))}</div><div class="ic-sub">${toFarsi(inv.rate)}٪ در ماه</div></div>
-      <div class="ic"><div class="ic-label">سود در این بازه</div><div class="ic-val red">${formatMoney(totalProfitInRange)}</div><div class="ic-sub">${toFarsi(filteredProfits.length)} ماه × ${formatMoney(mp)}</div></div>
-      <div class="ic"><div class="ic-label">پرداخت در این بازه</div><div class="ic-val green">${formatMoney(totalPaymentInRange)}</div><div class="ic-sub">${toFarsi(filteredPayments.length)} تراکنش</div></div>
+      <div class="ic"><div class="ic-label">سرمایه</div><div class="ic-val gold">${investorMoney(inv, activeCapital(inv))}</div><div class="ic-sub">${toFarsi(inv.rate)}٪ در ماه</div></div>
+      <div class="ic"><div class="ic-label">سود در این بازه</div><div class="ic-val red">${investorMoney(inv, totalProfitInRange)}</div><div class="ic-sub">${toFarsi(filteredProfits.length)} ماه × ${investorMoney(inv, mp)}</div></div>
+      <div class="ic"><div class="ic-label">پرداخت در این بازه</div><div class="ic-val green">${investorMoney(inv, totalPaymentInRange)}</div><div class="ic-sub">${toFarsi(filteredPayments.length)} تراکنش</div></div>
       <div class="ic"><div class="ic-label">مانده پایان بازه</div>
         <div class="ic-val ${finalBalance>0?'red':finalBalance<0?'green':''}">
-          ${finalBalance===0 ? 'تسویه' : (finalBalance>0 ? `${formatMoney(finalBalance)} بدهکار` : `${formatMoney(-finalBalance)} بستانکار`)}
+          ${finalBalance===0 ? 'تسویه' : (finalBalance>0 ? `${investorMoney(inv, finalBalance)} بدهکار` : `${investorMoney(inv, -finalBalance)} بستانکار`)}
         </div>
         <div class="ic-sub">${finalBalance>0?'ما به او بدهکاریم':finalBalance<0?'او به ما بدهکاره':'تسویه کامل'}</div>
       </div>
@@ -147,7 +147,7 @@ function renderPRTable() {
       <td colspan="3" style="color:var(--text-muted);font-style:italic">مانده ابتدای بازه</td>
       <td></td>
       <td class="${openingBalance>0?'bal-pos':openingBalance<0?'bal-neg':'bal-zero'}">
-        ${openingBalance===0?'تسویه':openingBalance>0?`${formatMoney(openingBalance)} بدهکار`:`${formatMoney(-openingBalance)} بستانکار`}
+        ${openingBalance===0?'تسویه':openingBalance>0?`${investorMoney(inv, openingBalance)} بدهکار`:`${investorMoney(inv, -openingBalance)} بستانکار`}
       </td>
     </tr>`;
   }
@@ -159,10 +159,10 @@ function renderPRTable() {
       rows += `<tr class="row-profit">
         <td>${dateStr}</td>
         <td>${ev.label}</td>
-        <td class="debit">${formatMoney(ev.amount)}</td>
+        <td class="debit">${investorMoney(inv, ev.amount)}</td>
         <td>—</td>
         <td class="${balance>0?'bal-pos':balance<0?'bal-neg':'bal-zero'}">
-          ${balance===0?'✅ تسویه':balance>0?`${formatMoney(balance)} بدهکار`:`${formatMoney(-balance)} بستانکار`}
+          ${balance===0?'✅ تسویه':balance>0?`${investorMoney(inv, balance)} بدهکار`:`${investorMoney(inv, -balance)} بستانکار`}
         </td>
       </tr>`;
     } else {
@@ -171,9 +171,9 @@ function renderPRTable() {
         <td>${dateStr}</td>
         <td>${ev.note || 'پرداخت سود'}</td>
         <td>—</td>
-        <td class="credit">${formatMoney(ev.amount)}</td>
+        <td class="credit">${investorMoney(inv, ev.amount)}</td>
         <td class="${balance>0?'bal-pos':balance<0?'bal-neg':'bal-zero'}">
-          ${balance===0?'✅ تسویه':balance>0?`${formatMoney(balance)} بدهکار`:`${formatMoney(-balance)} بستانکار`}
+          ${balance===0?'✅ تسویه':balance>0?`${investorMoney(inv, balance)} بدهکار`:`${investorMoney(inv, -balance)} بستانکار`}
         </td>
       </tr>`;
     }
@@ -213,7 +213,7 @@ function renderProfitScheduleRows(inv) {
   for (const row of [...schedule].reverse()) {
     const isPaid  = paidLabels.has(row.label);
     const dateStr = `${toFarsi(row.jDate.y)}/${toFarsi(String(row.jDate.m).padStart(2,'0'))}/${toFarsi(String(row.jDate.d).padStart(2,'0'))}`;
-    const balStr  = formatMoney(Math.round(row.balanceAfter));
+    const balStr  = investorMoney(inv, Math.round(row.balanceAfter));
     let statusBadge, actionBtn;
     if (isPaid) {
       statusBadge = `<span class="badge b-green">✅ پرداخت شده</span>`;
@@ -225,7 +225,7 @@ function renderProfitScheduleRows(inv) {
     rows += `<tr>
       <td>${dateStr}</td>
       <td>${row.label}</td>
-      <td style="color:var(--red);font-weight:600">${formatMoney(Math.round(row.amount))}</td>
+      <td style="color:var(--red);font-weight:600">${investorMoney(inv, Math.round(row.amount))}</td>
       <td style="color:var(--gold-light)">${balStr}</td>
       <td>${statusBadge}</td>
       <td>${actionBtn}</td>
