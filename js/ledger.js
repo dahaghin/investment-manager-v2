@@ -25,6 +25,7 @@ function normalizeInvestorForDB(data, id) {
     fullName: data.fullName || data.name || '',
     phone: data.phone || '',
     monthlyInterestRate: Number(data.monthlyInterestRate ?? data.rate ?? 0),
+    currency: ['IRT','USD','AED'].includes(data.currency) ? data.currency : 'IRT',
     status: data.status || investorStatus({ ...data, id }),
     startDate: normalizeISODate(data.startDate),
     notes: data.notes || '',
@@ -144,4 +145,13 @@ function allocatePayment(inv, amount, date, note, mode = 'smart') {
     txs.push(newTransaction(inv.id, 'capital_withdrawal', rest, date, note ? `${note} - برداشت اصل سرمایه` : 'برداشت اصل سرمایه - تخصیص هوشمند'));
   }
   return txs;
+}
+
+function investorCurrencyLabel(currency) {
+  return currency === 'USD' ? 'دلار' : currency === 'AED' ? 'درهم' : 'تومان';
+}
+function investorMoney(inv, amount) {
+  const value = Number(amount || 0);
+  const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Math.round(value * 100) / 100);
+  return inv?.currency === 'USD' ? '$' + formatted : inv?.currency === 'AED' ? formatted + ' د.إ' : formatMoney(value) + ' تومان';
 }
