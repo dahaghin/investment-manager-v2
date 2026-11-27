@@ -285,14 +285,16 @@ function renderDollarPerformance() {
   const today = dollarPerfTodayISO();
   const storedDates = [...dollarPerfTransactions.map(t=>dollarPerfDateToISO(t.date)), ...dollarPerfSnapshots.filter(s=>s.kind==='valuation').map(s=>dollarPerfDateToISO(s.date))].filter(Boolean).sort();
   const firstDate = storedDates[0] || today;
-  const from = document.getElementById('dpFrom')?.value || dollarPerfISOToJalali(firstDate);
-  const to = document.getElementById('dpTo')?.value || dollarPerfTodayJalali();
-  const fromISO = dollarPerfDateToISO(from);
-  const toISO = dollarPerfDateToISO(to);
-  if (!fromISO || !toISO) {
-    el.innerHTML = '<div class="dp-error">فرمت یکی از تاریخ‌ها معتبر نیست. تاریخ‌ها را دوباره انتخاب کن.</div>';
-    return;
-  }
+  const requestedFrom = document.getElementById('dpFrom')?.value || '';
+  const requestedTo = document.getElementById('dpTo')?.value || '';
+  const parsedFrom = dollarPerfDateToISO(requestedFrom);
+  const parsedTo = dollarPerfDateToISO(requestedTo);
+  // Invalid/legacy stored values must not blank the whole page: recover to
+  // the first valid record date and today, while keeping the shared calendar usable.
+  const fromISO = parsedFrom || firstDate;
+  const toISO = parsedTo || today;
+  const from = parsedFrom ? requestedFrom : dollarPerfISOToJalali(fromISO);
+  const to = parsedTo ? requestedTo : dollarPerfTodayJalali();
   if (fromISO > toISO) {
     const safeFrom = [...dollarPerfTransactions.map(t=>t.date), ...dollarPerfSnapshots.filter(s=>s.kind==='valuation').map(s=>s.date)].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today).sort()[0] || today;
     const fromEl = document.getElementById('dpFrom');
