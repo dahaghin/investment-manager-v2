@@ -23,7 +23,19 @@ function dollarPerfTodayISO() {
   return part('year') + '-' + part('month') + '-' + part('day');
 }
 function dollarPerfTodayJalali() { return dollarPerfISOToJalali(dollarPerfTodayISO()); }
-function dollarPerfDateToISO(value) { return jalaliInputToGregorian(value); }
+function dollarPerfDateToISO(value) {
+  if (!value) return '';
+  const raw = String(value).trim().replace(/[۰-۹]/g, ch => '۰۱۲۳۴۵۶۷۸۹'.indexOf(ch)).replace(/[٠-٩]/g, ch => '٠١٢٣٤٥٦٧٨٩'.indexOf(ch));
+  const m = raw.match(/^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})$/);
+  if (!m) return '';
+  const y = Number(m[1]), mo = Number(m[2]), day = Number(m[3]);
+  if (y >= 1700) {
+    const date = new Date(Date.UTC(y, mo - 1, day));
+    return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === day ? String(y)+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0') : '';
+  }
+  if (y < 1200 || mo < 1 || mo > 12 || day < 1 || day > jdpMonthLen(y, mo)) return '';
+  return jalaliInputToGregorian(String(y)+'/'+String(mo)+'/'+String(day));
+}
 function dollarPerfISOToJalali(value) { return gregorianToJalaliStr(value); }
 function dollarPerfSafe(value) { return typeof escapeHTML === 'function' ? escapeHTML(value) : String(value || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
@@ -236,8 +248,17 @@ function renderDollarPerformance() {
   const to = document.getElementById('dpTo')?.value || dollarPerfTodayJalali();
   const fromISO = dollarPerfDateToISO(from);
   const toISO = dollarPerfDateToISO(to);
-  if (fromISO && toISO && fromISO > toISO) {
-    el.innerHTML = '<div class="dp-error">تاریخ شروع باید قبل از تاریخ پایان باشد.</div>';
+  if (!fromISO || !toISO) {
+    el.innerHTML = '<div class="dp-error">فرمت یکی از تاریخ‌ها معتبر نیست. تاریخ‌ها را دوباره انتخاب کن.</div>';
+    return;
+  }
+  if (fromISO > toISO) {
+    const safeFrom = [...dollarPerfTransactions.map(t=>t.date), ...dollarPerfSnapshots.filter(s=>s.kind==='valuation').map(s=>s.date)].filter(d=>/^\\d{4}-\\d{2}-\\d{2}$/.test(d) && d <= today).sort()[0] || today;
+    const fromEl = document.getElementById('dpFrom');
+    const toEl = document.getElementById('dpTo');
+    if (fromEl) fromEl.value = dollarPerfISOToJalali(safeFrom);
+    if (toEl) toEl.value = dollarPerfTodayJalali();
+    renderDollarPerformance();
     return;
   }
   const report = dollarPerfCompute(fromISO, toISO);
