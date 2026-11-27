@@ -33,8 +33,12 @@ function dollarPerfDateToISO(value) {
     const date = new Date(Date.UTC(y, mo - 1, day));
     return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === day ? String(y)+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0') : '';
   }
-  if (y < 1200 || mo < 1 || mo > 12 || day < 1 || day > jdpMonthLen(y, mo)) return '';
-  return jalaliInputToGregorian(String(y)+'/'+String(mo)+'/'+String(day));
+  if (y < 1200 || mo < 1 || mo > 12 || day < 1 || day > 31) return '';
+  const iso = jalaliInputToGregorian(String(y)+'/'+String(mo)+'/'+String(day));
+  const parts = iso.split('-').map(Number);
+  if (parts.length !== 3) return '';
+  const roundTrip = gregorianToJalali(parts[0], parts[1], parts[2]);
+  return roundTrip.y === y && roundTrip.m === mo && roundTrip.d === day ? iso : '';
 }
 function dollarPerfISOToJalali(value) { return gregorianToJalaliStr(value); }
 function dollarPerfSafe(value) { return typeof escapeHTML === 'function' ? escapeHTML(value) : String(value || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
