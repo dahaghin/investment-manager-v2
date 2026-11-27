@@ -1,12 +1,15 @@
 // ===== Stats =====
 function updateStats() {
-  document.getElementById('stCapital').textContent = formatMoney(investors.reduce((s,i) => s+activeCapital(i),0));
-  document.getElementById('stMonthly').textContent = formatMoney(investors.reduce((s,i) => s+totalProfit(i),0));
-  document.getElementById('stCount').textContent = formatMoney(investors.reduce((sum, inv) => sum + getInvestorTransactions(inv).filter(t => t.type === 'settlement' && t.date === todayGregorian()).reduce((s,t) => s + Number(t.amount), 0), 0));
-  document.getElementById('stUnpaid').textContent = formatMoney(investors.reduce((s,i) => s+totalPaid(i),0));
-  // Cheques due in next 7 days
+  const grouped = (selector) => ['IRT','USD','AED'].map(currency => {
+    const total = investors.filter(i => (i.currency || 'IRT') === currency).reduce((sum, inv) => sum + Number(selector(inv) || 0), 0);
+    return total ? investorMoney({currency}, total) : '';
+  }).filter(Boolean).join(' · ') || '—';
+  document.getElementById('stCapital').textContent = grouped(activeCapital);
+  document.getElementById('stMonthly').textContent = grouped(totalProfit);
+  document.getElementById('stCount').textContent = grouped(inv => getInvestorTransactions(inv).filter(t => t.type === 'settlement' && t.date === todayGregorian()).reduce((s,t) => s + Number(t.amount), 0));
+  document.getElementById('stUnpaid').textContent = grouped(totalPaid);
   const todayG = todayGregorian();
-  const in7G   = new Date(); in7G.setDate(in7G.getDate()+7);
+  const in7G = new Date(); in7G.setDate(in7G.getDate()+7);
   const in7Str = in7G.toISOString().split('T')[0];
   const alertCount = cheques.filter(c => !c.cashed && c.dueDate >= todayG && c.dueDate <= in7Str).length;
   const overdueCount = cheques.filter(c => !c.cashed && c.dueDate < todayG).length;
