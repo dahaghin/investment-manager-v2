@@ -112,7 +112,7 @@ function renderDetail() {
     </div>
 
     <div class="info-grid">
-      <div class="ic"><div class="ic-label">Active Capital</div><div class="ic-val gold">${formatMoney(activeCapital(inv))}</div><div class="ic-sub">سرمایه فعال</div></div>
+      <div class="ic"><div class="ic-label">Active Capital</div><div class="ic-val gold">${investorMoney(inv, activeCapital(inv))}</div><div class="ic-sub">سرمایه فعال</div></div>
       <div class="ic"><div class="ic-label">Current Account Value</div><div class="ic-val gold">${investorMoney(inv, Math.round(curBal))}</div><div class="ic-sub">اصل + سود انباشته</div></div>
       <div class="ic"><div class="ic-label">Next Profit Date</div><div class="ic-val green">${nextDate ? milToJalali(nextDate) : '—'}</div><div class="ic-sub">سود بعدی: ${investorMoney(inv, Math.round(mp))}</div></div>
       <div class="ic"><div class="ic-label">Accumulated Profit (${toFarsi(months)} ماه)</div><div class="ic-val blue">${investorMoney(inv, Math.round(tp))}</div><div class="ic-sub">از ${milToJalali(inv.startDate)}</div></div>
