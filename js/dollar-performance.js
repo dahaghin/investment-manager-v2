@@ -26,7 +26,7 @@ function dollarPerfTodayJalali() { return dollarPerfISOToJalali(dollarPerfTodayI
 function dollarPerfDateToISO(value) {
   if (!value) return '';
   const raw = String(value).trim().replace(/[۰-۹]/g, ch => '۰۱۲۳۴۵۶۷۸۹'.indexOf(ch)).replace(/[٠-٩]/g, ch => '٠١٢٣٤٥٦٧٨٩'.indexOf(ch));
-  const m = raw.match(/^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})$/);
+  const m = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
   if (!m) return '';
   const y = Number(m[1]), mo = Number(m[2]), day = Number(m[3]);
   if (y >= 1700) {
@@ -253,7 +253,7 @@ function renderDollarPerformance() {
     return;
   }
   if (fromISO > toISO) {
-    const safeFrom = [...dollarPerfTransactions.map(t=>t.date), ...dollarPerfSnapshots.filter(s=>s.kind==='valuation').map(s=>s.date)].filter(d=>/^\\d{4}-\\d{2}-\\d{2}$/.test(d) && d <= today).sort()[0] || today;
+    const safeFrom = [...dollarPerfTransactions.map(t=>t.date), ...dollarPerfSnapshots.filter(s=>s.kind==='valuation').map(s=>s.date)].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today).sort()[0] || today;
     const fromEl = document.getElementById('dpFrom');
     const toEl = document.getElementById('dpTo');
     if (fromEl) fromEl.value = dollarPerfISOToJalali(safeFrom);
