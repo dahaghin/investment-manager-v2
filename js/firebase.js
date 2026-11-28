@@ -127,6 +127,12 @@ async function loadInvestors() {
   updateStats();
   if (investors.length > 0 && !selectedId) selectedId = investors[0].id;
   if (selectedId) { renderList(); renderDetail(); }
+  else {
+    const empty = document.getElementById('emptyState');
+    const detail = document.getElementById('detailPanel');
+    if (empty) empty.style.display = 'flex';
+    if (detail) { detail.style.display = 'none'; detail.innerHTML = ''; }
+  }
   if (typeof isMobileLayout === 'function' && isMobileLayout() && !document.body.dataset.mobileInitialTab) {
     document.body.dataset.mobileInitialTab = 'true';
     switchTab('dashboard');
