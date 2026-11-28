@@ -13,9 +13,17 @@ function investorDollarRate(value) {
 }
 async function investorDollarFxForDate(date) {
   const saved = dollarPerfSnapshots.find(s => s.kind === 'rate' && s.date === date);
+  // For today, prefer the freshly fetched live quote; a deliberate manual
+  // override saved for today remains authoritative.
+  if (saved?.manualRate && Number(saved.effectiveRate) > 0) {
+    return { rate: Number(saved.effectiveRate), source: 'نرخ دستی ذخیره‌شده' };
+  }
+  if (date === dollarPerfTodayISO() && dollarPerfMarket && !dollarPerfMarket.stale && Number(dollarPerfMarket.rate) > 0) {
+    return { rate: Number(dollarPerfMarket.rate), source: dollarPerfMarket.source || 'نرخ زنده' };
+  }
   if (saved) {
     const savedRate = Number(saved.effectiveRate || saved.apiRate || 0);
-    if (savedRate > 0) return { rate: savedRate, source: saved.manualRate ? 'نرخ دستی ذخیره‌شده' : 'نرخ ذخیره‌شده' };
+    if (savedRate > 0) return { rate: savedRate, source: 'نرخ ذخیره‌شده' };
   }
   return dollarPerfRateForDate(date);
 }
