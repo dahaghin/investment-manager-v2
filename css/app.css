@@ -411,3 +411,16 @@ img, svg, canvas { max-width: 100%; }
   .report-section.collapsed > :not(.report-collapse-toggle) { display: none; }
   .report-section.collapsed .report-collapse-toggle b { transform: rotate(90deg); }
 }
+
+/* Beta 5 archived investor history */
+.archive-layout { display:grid; grid-template-columns:minmax(220px,280px) minmax(0,1fr); gap:18px; align-items:start; }
+.archive-list, .archive-detail { min-width:0; }
+.archive-item { display:flex; flex-direction:column; align-items:flex-start; gap:5px; width:100%; padding:13px 14px; color:var(--text); background:var(--surface); border:0; border-bottom:1px solid var(--border); text-align:right; cursor:pointer; }
+.archive-item:hover, .archive-item.active { background:var(--surface2); }
+.archive-item.active { border-right:3px solid var(--gold); }
+.archive-item b { font-size:13px; }
+.archive-item span, .archive-item small { color:var(--text-muted); font-size:11px; }
+@media (max-width:760px) {
+  .archive-layout { grid-template-columns:1fr; }
+  .archive-list { max-height:260px; overflow:auto; }
+}
