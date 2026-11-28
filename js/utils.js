@@ -90,7 +90,7 @@ function gregorianToJalaliStr(dateStr) {
     .replace(/[۰-۹]/g, ch => '۰۱۲۳۴۵۶۷۸۹'.indexOf(ch))
     .replace(/[٠-٩]/g, ch => '٠١٢٣٤٥٦٧٨٩'.indexOf(ch));
   // If the stored value is already a Jalali date, keep it as Jalali.
-  const jalali = raw.match(/^(1[34]\\d{2})[\\/-](\\d{1,2})[\\/-](\\d{1,2})$/);
+  const jalali = raw.match(/^(1[34]\d{2})[\/-](\d{1,2})[\/-](\d{1,2})$/);
   if (jalali) {
     const y=Number(jalali[1]), m=Number(jalali[2]), d=Number(jalali[3]);
     if (m>=1 && m<=12 && d>=1 && d<=(m<=6?31:m<=11?30:30))
@@ -98,7 +98,7 @@ function gregorianToJalaliStr(dateStr) {
     return '';
   }
   // Accept ISO/Gregorian date strings only; never feed malformed years to the converter.
-  const greg = raw.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/);
+  const greg = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (!greg) return '';
   const gy=Number(greg[1]), gm=Number(greg[2]), gd=Number(greg[3]);
   if (gy<1900 || gy>2200 || gm<1 || gm>12 || gd<1 || gd>31) return '';
