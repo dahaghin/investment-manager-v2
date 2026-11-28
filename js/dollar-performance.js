@@ -49,7 +49,14 @@ function dollarPerfDateToISO(value) {
   const roundTrip = gregorianToJalali(parts[0], parts[1], parts[2]);
   return roundTrip.y === y && roundTrip.m === mo && roundTrip.d === day ? iso : '';
 }
-function dollarPerfISOToJalali(value) { return gregorianToJalaliStr(value); }
+function dollarPerfISOToJalali(value) {
+  if (!value) return '—';
+  const iso = dollarPerfDateToISO(value);
+  if (!iso) return String(value);
+  const parts = iso.split('-').map(Number);
+  const j = gregorianToJalali(parts[0], parts[1], parts[2]);
+  return String(j.y) + '/' + String(j.m).padStart(2, '0') + '/' + String(j.d).padStart(2, '0');
+}
 function dollarPerfSafe(value) { return typeof escapeHTML === 'function' ? escapeHTML(value) : String(value || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 async function dollarPerfFetchJson(urls, cache = 'no-store') {
@@ -293,8 +300,8 @@ function renderDollarPerformance() {
   // the first valid record date and today, while keeping the shared calendar usable.
   const fromISO = parsedFrom || firstDate;
   const toISO = parsedTo || today;
-  const from = parsedFrom ? requestedFrom : dollarPerfISOToJalali(fromISO);
-  const to = parsedTo ? requestedTo : dollarPerfTodayJalali();
+  const from = dollarPerfISOToJalali(fromISO);
+  const to = dollarPerfISOToJalali(toISO);
   if (fromISO > toISO) {
     const safeFrom = [...dollarPerfTransactions.map(t=>t.date), ...dollarPerfSnapshots.filter(s=>s.kind==='valuation').map(s=>s.date)].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today).sort()[0] || today;
     const fromEl = document.getElementById('dpFrom');
@@ -311,8 +318,8 @@ function renderDollarPerformance() {
   const currentRateStale = toISO === today && dollarPerfMarket?.stale;
   const lastValueUSD = latestValuation ? Number(latestValuation.valueToman) / Number(latestValuation.fxRateToman) : 0;
   const pnlClass = report.profitUSD >= 0 ? 'positive' : 'negative';
-  const txRows = [...dollarPerfTransactions].reverse().slice(0,12).map(t => '<tr><td>' + dollarPerfSafe(t.jalaliDate || dollarPerfISOToJalali(t.date)) + '</td><td>' + (t.type==='deposit'?'افزایش سرمایه':'برداشت') + '</td><td>' + dollarPerfMoney(t.amountToman) + '</td><td>' + dollarPerfMoney(Number(t.amountToman)/Number(t.fxRateToman),'USD') + '</td><td>' + dollarPerfRate(t.fxRateToman) + '</td></tr>').join('');
-  const snapRows = [...dollarPerfSnapshots].filter(s=>s.kind==='valuation').reverse().slice(0,8).map(s=>'<tr><td>'+dollarPerfSafe(s.jalaliDate || dollarPerfISOToJalali(s.date))+'</td><td>'+dollarPerfMoney(s.valueToman)+'</td><td>'+dollarPerfRate(s.fxRateToman)+'</td><td>'+dollarPerfMoney(Number(s.valueToman)/Number(s.fxRateToman),'USD')+'</td></tr>').join('');
+  const txRows = [...dollarPerfTransactions].reverse().slice(0,12).map(t => '<tr><td>' + dollarPerfSafe(dollarPerfISOToJalali(t.date)) + '</td><td>' + (t.type==='deposit'?'افزایش سرمایه':'برداشت') + '</td><td>' + dollarPerfMoney(t.amountToman) + '</td><td>' + dollarPerfMoney(Number(t.amountToman)/Number(t.fxRateToman),'USD') + '</td><td>' + dollarPerfRate(t.fxRateToman) + '</td></tr>').join('');
+  const snapRows = [...dollarPerfSnapshots].filter(s=>s.kind==='valuation').reverse().slice(0,8).map(s=>'<tr><td>'+dollarPerfSafe(dollarPerfISOToJalali(s.date))+'</td><td>'+dollarPerfMoney(s.valueToman)+'</td><td>'+dollarPerfRate(s.fxRateToman)+'</td><td>'+dollarPerfMoney(Number(s.valueToman)/Number(s.fxRateToman),'USD')+'</td></tr>').join('');
   el.innerHTML = '<div class="dp-header"><div><div class="dp-eyebrow">PORTFOLIO · USD BENCHMARK</div><h2>عملکرد دلاری سرمایه</h2><p>آیا رشد سرمایه‌ات از رشد دلار آزاد جلو زده است؟</p></div><div class="dp-header-actions"><button class="btn btn-secondary" onclick="loadDollarPerformance()">↻ به‌روزرسانی نرخ</button><button class="btn btn-gold" onclick="openDollarValuationModal()">ثبت ارزش فعلی سرمایه</button></div></div>' +
   '<div class="dp-rate-strip"><div><span>دلار آزاد امروز</span><strong>' + (currentRate ? dollarPerfRate(currentRate) : '—') + '</strong><small>' + (dollarPerfMarket?.timestampJalali || 'زمان نرخ در دسترس نیست') + '</small></div><div class="dp-rate-source"><span>منبع داده</span><b>Iran Market Data · TGJU</b><small>' + (currentRateStale ? 'هشدار: داده قدیمی است' : 'به‌روزرسانی دوره‌ای حدود ۳۰ دقیقه') + '</small></div><button class="btn btn-secondary btn-sm" onclick="document.getElementById(\'dpManualRate\').value=\'' + (dollarPerfMarket?.rate || '') + '\';document.getElementById(\'dpRateModal\').classList.add(\'show\')">اصلاح نرخ امروز</button></div>' +
   '<div class="dp-filters"><div><label>از تاریخ شمسی</label><div class="jdp-wrap"><input class="fi jdp-input" id="dpFrom" value="' + dollarPerfSafe(from) + '" readonly onclick="jdpOpen(\'dpFrom\',\'jdp_dpFrom\')"><div class="jdp-popup" id="jdp_dpFrom"></div></div></div><div><label>تا تاریخ شمسی</label><div class="jdp-wrap"><input class="fi jdp-input" id="dpTo" value="' + dollarPerfSafe(to) + '" readonly onclick="jdpOpen(\'dpTo\',\'jdp_dpTo\')"><div class="jdp-popup" id="jdp_dpTo"></div></div></div><button class="btn btn-secondary" onclick="renderDollarPerformance()">اعمال بازه</button><button class="btn btn-success" onclick="openDollarFlowModal()">+ ثبت واریز / برداشت</button></div>' +
