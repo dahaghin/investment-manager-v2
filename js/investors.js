@@ -19,7 +19,8 @@ function openEditModal(id) {
   document.getElementById('f_capital').value = inv.capital;
   document.getElementById('f_currency').value = inv.currency || 'IRT';
   document.getElementById('f_rate').value = inv.monthlyInterestRate ?? inv.rate;
-  document.getElementById('f_start').value = gregorianToJalaliStr(inv.startDate) || todayJalali();
+  document.getElementById('f_start').value = gregorianToJalaliStr(inv.startDate);
+  if (!document.getElementById('f_start').value) toast('تاریخ ذخیره‌شده معتبر نیست؛ لطفاً تاریخ صحیح را از تقویم انتخاب کنید.', true);
   document.getElementById('f_notes').value = inv.notes || '';
   document.getElementById('invModal').classList.add('show');
 }
