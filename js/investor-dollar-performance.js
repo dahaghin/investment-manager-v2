@@ -28,6 +28,57 @@ async function investorDollarFxForDate(date) {
   }
   return dollarPerfRateForDate(date);
 }
+
+async function investorDollarBuildHistoryChart(inv, converted, today) {
+  const schedule = buildProfitSchedule(inv);
+  const tx = getInvestorTransactions(inv);
+  const principalOut = converted.filter(e => e.type === 'capital_withdrawal' || e.type === 'settlement');
+  const dateSet = new Set([...converted.map(e => e.date), ...schedule.map(r => r.gregDate), today].filter(Boolean));
+  let dates = [...dateSet].sort();
+  if (dates.length > 36) {
+    const sampled = [];
+    for (let i = 0; i < 36; i++) sampled.push(dates[Math.round(i * (dates.length - 1) / 35)]);
+    dates = [...new Set(sampled)];
+  }
+  const points = [], missing = [];
+  for (const date of dates) {
+    try {
+      const fxResult = await investorDollarFxForDate(date);
+      const fx = Number(fxResult.rate);
+      if (!(fx > 0)) throw new Error('نرخ معتبر نیست');
+      const eventsToDate = converted.filter(e => e.date <= date);
+      const usdUnits = eventsToDate.reduce((sum,e) => sum + e.signedUsd, 0);
+      const returnedPrincipal = principalOut.filter(e => e.date <= date).reduce((sum,e) => sum + e.amount, 0);
+      const principal = Math.max(0, ledgerCapitalBefore(inv, date));
+      const accrued = schedule.filter(r => r.gregDate <= date).reduce((sum,r) => sum + Number(r.amount || 0), 0);
+      const capitalizedToDate = tx.filter(t => t.type === 'compound_profit' && t.date <= date).reduce((sum,t) => sum + Number(t.amount || 0), 0);
+      points.push({ date, actual: principal + accrued + capitalizedToDate + returnedPrincipal, dollar: usdUnits * fx + returnedPrincipal });
+    } catch (e) { missing.push(date); }
+  }
+  if (points.length < 2) return '<section class="dp-chart-panel dp-investor-chart"><div class="dp-panel-title"><div><h3>روند سرمایه‌گذاری در برابر نگهداری دلار</h3><p>مقایسه ارزش سرمایه به همراه سودهای ماهانه با سناریوی خرید دلار</p></div></div><div class="dp-chart-empty">برای رسم نمودار، حداقل دو تاریخ با نرخ تاریخی معتبر لازم است.</div></section>';
+  const allValues = points.flatMap(p => [p.actual, p.dollar]).filter(Number.isFinite);
+  let min = Math.min(...allValues), max = Math.max(...allValues);
+  if (max === min) max = min + 1;
+  const pad = (max - min) * .12;
+  min = Math.max(0, min - pad); max += pad;
+  const x = i => 54 + (i * 630 / (points.length - 1));
+  const y = v => 184 - ((v - min) / (max - min)) * 150;
+  const actualCoords = points.map((p,i) => x(i).toFixed(1) + ',' + y(p.actual).toFixed(1));
+  const dollarCoords = points.map((p,i) => x(i).toFixed(1) + ',' + y(p.dollar).toFixed(1));
+  const grid = [0,1,2,3].map(i => '<line x1="54" y1="' + (34+i*50) + '" x2="684" y2="' + (34+i*50) + '" stroke="var(--border)" stroke-dasharray="4 5"/>').join('');
+  const dots = (key,color) => points.map((p,i) => '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(p[key]).toFixed(1) + '" r="3.2" fill="' + color + '"><title>' + dollarPerfISOToJalali(p.date) + ': ' + investorDollarMoney(p[key]) + '</title></circle>').join('');
+  const last = points[points.length-1];
+  return '<section class="dp-chart-panel dp-investor-chart"><div class="dp-panel-title"><div><h3>روند سرمایه‌گذاری در برابر نگهداری دلار</h3><p>ارزش کل سرمایه‌گذاری با احتساب سودهای ماهانه در مقایسه با سناریوی خرید دلار</p></div></div>' +
+    '<div class="dp-chart-legend"><span><i class="dp-legend-actual"></i> سرمایه‌گذاری + سود ماهانه</span><span><i class="dp-legend-dollar"></i> نگهداری دلار</span></div>' +
+    '<svg class="dp-investor-history-svg" viewBox="0 0 720 218" role="img" aria-label="نمودار مقایسه رشد سرمایه‌گذاری با نگهداری دلار">' + grid +
+    '<polyline points="' + dollarCoords.join(' ') + '" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<polyline points="' + actualCoords.join(' ') + '" fill="none" stroke="#34d399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
+    dots('dollar','#38bdf8') + dots('actual','#34d399') + '</svg>' +
+    '<div class="dp-chart-labels"><span>' + dollarPerfISOToJalali(points[0].date) + '</span><span>' + dollarPerfISOToJalali(last.date) + '</span></div>' +
+    '<div class="dp-chart-current"><span>ارزش امروز سرمایه‌گذاری: <b>' + investorDollarMoney(last.actual) + '</b></span><span>ارزش امروز سناریوی دلار: <b>' + investorDollarMoney(last.dollar) + '</b></span></div>' +
+    (missing.length ? '<div class="dp-footnote">برای ' + missing.length + ' تاریخ نرخ تاریخی پیدا نشد؛ آن تاریخ‌ها در نمودار نمایش داده نشده‌اند.</div>' : '') + '</section>';
+}
+
 async function loadInvestorDollarPerformance(id = null) {
   if (id) investorDollarSelectedId = id;
   else if (!investorDollarSelectedId) investorDollarSelectedId = (typeof selectedId !== 'undefined' ? selectedId : null);
@@ -106,6 +157,7 @@ async function loadInvestorDollarPerformance(id = null) {
     const profitVsDollarUSD = profitVsDollarToman / todayFx;
     const percent = holdUSDValueToman > 0 ? (profitVsDollarToman / holdUSDValueToman) * 100 : null;
     const complete = missing.length === 0 && benchmarkUSD > 0;
+    const comparisonChart = await investorDollarBuildHistoryChart(inv, converted, today);
     const rows = converted.map(e =>
       '<tr><td>' + dollarPerfISOToJalali(e.date) + '</td><td>' + e.label + '</td><td>' + investorDollarMoney(e.amount) + '</td><td>' + investorDollarRate(e.rate) + '</td><td>' + (e.signedUsd < 0 ? '−' : '+') + investorDollarMoney(e.usd,'USD') + '</td></tr>'
     ).join('');
@@ -124,7 +176,7 @@ async function loadInvestorDollarPerformance(id = null) {
       '<div class="dp-footnote"><b>روش مقایسه:</b> هر واریز اصل سرمایه با نرخ دلار تاریخ خودش به دلار تبدیل می‌شود. ارزش امروز سناریوی دلار با نرخ امروز محاسبه می‌شود. در سمت سرمایه‌گذاری، تمام سودهای ماهانه ایجادشده لحاظ می‌شوند؛ چه پرداخت شده باشند و چه هنوز طلب باشند. سود سرمایه‌ای‌شده جداگانه اضافه می‌شود تا دوباره‌شماری نشود. برداشت اصل سرمایه نیز در هر دو سناریو به‌عنوان وجه نقد برگشتی لحاظ می‌شود.</div>' +
       '<div class="dp-footnote">تفکیک سود — ایجادشده: ' + investorDollarMoney(createdProfit) + ' · پرداخت‌شده (داخل سود ایجادشده): ' + investorDollarMoney(paidProfit) + ' · طلب پرداخت‌نشده: ' + investorDollarMoney(outstandingProfit) + ' · سود سرمایه‌ای‌شده: ' + investorDollarMoney(capitalizedProfit) + '</div>' +
       (missing.length ? '<div class="dp-error">برای تاریخ‌های ' + missing.map(dollarPerfISOToJalali).join('، ') + ' نرخ تاریخی پیدا نشد؛ نتیجه نهایی موقت است.</div>' : '') +
-      '<details class="investment-history"><summary>ریز واریزها و برداشت‌ها و نرخ دلار هر تاریخ</summary><div class="table-wrap"><table><thead><tr><th>تاریخ شمسی</th><th>شرح</th><th>مبلغ</th><th>نرخ دلار همان روز</th><th>معادل دلاری</th></tr></thead><tbody>' + (rows || '<tr><td colspan="5">تراکنش سرمایه‌ای ثبت نشده است.</td></tr>') + '</tbody></table></div></details></div>';
+      '<details class="investment-history"><summary>ریز واریزها و برداشت‌ها و نرخ دلار هر تاریخ</summary><div class="table-wrap"><table><thead><tr><th>تاریخ شمسی</th><th>شرح</th><th>مبلغ</th><th>نرخ دلار همان روز</th><th>معادل دلاری</th></tr></thead><tbody>' + (rows || '<tr><td colspan="5">تراکنش سرمایه‌ای ثبت نشده است.</td></tr>') + '</tbody></table></div></details>' + comparisonChart + '</div>';
   } catch (e) {
     host.innerHTML = '<div class="dp-error">محاسبه مقایسه دلاری انجام نشد: ' + dollarPerfSafe(e.message) + '<button class="btn btn-secondary" onclick="loadInvestorDollarPerformance(investorDollarSelectedId)">تلاش دوباره</button></div>';
   } finally { investorDollarBusy = false; }
