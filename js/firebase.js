@@ -96,6 +96,7 @@ function investorFromDoc(doc, tx = []) {
     startDate: normalizeISODate(data.startDate || firstDeposit?.date || todayGregorian()),
     capital: Number(firstDeposit?.amount || data.capital || 0),
     notes: data.notes || '',
+    archivedAt: data.archivedAt || null,
     createdAt: data.createdAt,
     transactions,
     payments: profitPayments
@@ -116,8 +117,10 @@ async function loadInvestors() {
     list.sort((a, b) => String(a.data().date || '').localeCompare(String(b.data().date || '')));
     txByInvestor.set(data.investorId, list);
   });
-  investors = invSnap.docs.map(doc => investorFromDoc(doc, txByInvestor.get(doc.id) || []))
+  const allInvestors = invSnap.docs.map(doc => investorFromDoc(doc, txByInvestor.get(doc.id) || []))
     .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  archivedInvestors = allInvestors.filter(inv => !!inv.archivedAt);
+  investors = allInvestors.filter(inv => !inv.archivedAt);
   cheques = chqSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderList();
   updateStats();
@@ -156,6 +159,13 @@ async function saveTransactionDB(tx) {
 
 async function deleteTransactionDB(id) {
   await txCol().doc(id).delete();
+}
+
+async function archiveInvestorDB(id, archived = true) {
+  const ref = invCol().doc(id);
+  if (archived) await ref.update({ archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  else await ref.update({ archivedAt: null, updatedAt: new Date().toISOString() });
+  await loadInvestors();
 }
 
 async function deleteInvestorDB(id) {
