@@ -40,6 +40,7 @@ function switchTab(tab) {
   if (tab === 'dollar-performance') loadDollarPerformance();
   if (tab === 'investor-dollar') loadInvestorDollarPerformance();
   if (tab === 'cheques')  renderCheques();
+  if (tab === 'archive') renderArchive();
 }
 
 
@@ -91,6 +92,7 @@ function renderDetail() {
   const months = buildProfitSchedule(inv).length;
   const curBal = currentBalance(inv);
   const invStatus = investorStatus(inv);
+  const archiveReady = activeCapital(inv) <= 0 && (isSettled(inv) || unpaid(inv) <= 0);
   const statusFa = { Active:'فعال', Settled:'تسویه شده', 'Pending Payment':'در انتظار پرداخت', Overdue:'معوق' }[invStatus] || invStatus;
   const nextDate = nextProfitDate(inv);
 
@@ -121,6 +123,7 @@ function renderDetail() {
         <button class="btn btn-success" onclick="openPayModal('${inv.id}')">+ پرداخت</button>
         <button class="btn btn-gold" onclick="openTransactionModal('${inv.id}')">+ تراکنش</button>
         <button class="btn btn-secondary" onclick="openEditModal('${inv.id}')">ویرایش</button>
+        <button class="btn btn-secondary" onclick="archiveInvestor('${inv.id}')" title="ابتدا تسویه کامل اصل و سود را بررسی می‌کند">🗄️ بایگانی</button>
         <button class="btn btn-danger" onclick="confirmDelete('${inv.id}')">حذف</button>
       </div>
     </div>
@@ -174,3 +177,19 @@ function renderTransactionRows(inv) {
       <td>${t.description || '—'}</td>
     </tr>`).join('');
 }
+
+function renderArchive() {
+  const host = document.getElementById('archiveContent');
+  if (!host) return;
+  const list = archivedInvestors || [];
+  if (!list.length) { host.innerHTML = '<div class="empty-state"><div class="ei">🗄️</div><p>هنوز سرمایه‌گذاری‌ای بایگانی نشده است.</p><small>پس از تسویه کامل، از صفحه سرمایه‌گذار دکمه بایگانی را بزنید.</small></div>'; return; }
+  if (!selectedArchivedId || !list.some(inv => inv.id === selectedArchivedId)) selectedArchivedId = list[0].id;
+  const inv = list.find(x => x.id === selectedArchivedId);
+  const items = list.map(x => '<button class="archive-item ' + (x.id === inv.id ? 'active' : '') + '" onclick="selectArchivedInvestor(\'' + x.id + '\')"><b>' + (x.name || x.fullName || 'بدون نام') + '</b><span>' + investorMoney(x, activeCapital(x)) + '</span><small>بایگانی: ' + milToJalali(String(x.archivedAt).slice(0,10)) + '</small></button>').join('');
+  const tx = getInvestorTransactions(inv);
+  const rows = tx.length ? [...tx].reverse().map(t => '<tr><td>' + transactionTypeLabel(t.type) + '</td><td>' + investorMoney(inv,t.amount) + '</td><td>' + milToJalali(t.date) + '</td><td>' + (t.description || '—') + '</td></tr>').join('') : '<tr><td colspan="4">تراکنشی ثبت نشده است.</td></tr>';
+  const payments = tx.filter(t => t.type === 'profit_payment');
+  const paymentRows = payments.length ? [...payments].reverse().map((t,i) => '<tr><td>' + toFarsi(payments.length-i) + '</td><td>' + investorMoney(inv,t.amount) + '</td><td>' + milToJalali(t.date) + '</td><td>' + (t.description || 'پرداخت سود') + '</td></tr>').join('') : '<tr><td colspan="4">پرداخت سودی ثبت نشده است.</td></tr>';
+  host.innerHTML = '<div class="archive-layout"><aside class="archive-list"><div class="sec-title">سرمایه‌گذاران بایگانی‌شده <span>' + toFarsi(list.length) + ' نفر</span></div>' + items + '</aside><section class="archive-detail"><div class="detail-head"><div><div class="d-name">' + (inv.name || inv.fullName || 'بدون نام') + '</div><div class="d-phone">' + (inv.phone || 'شماره ثبت نشده') + ' · بایگانی در ' + milToJalali(String(inv.archivedAt).slice(0,10)) + '</div></div><div class="dh-actions"><button class="btn btn-secondary" onclick="restoreArchivedInvestor(\'' + inv.id + '\')">بازگرداندن به سرمایه‌گذاران فعال</button></div></div><div class="info-grid"><div class="ic"><div class="ic-label">واحد سرمایه</div><div class="ic-val gold">' + investorCurrencyLabel(inv.currency || 'IRT') + '</div></div><div class="ic"><div class="ic-label">کل پرداخت سود ثبت‌شده</div><div class="ic-val green">' + investorMoney(inv,totalPaid(inv)) + '</div></div><div class="ic"><div class="ic-label">تعداد تراکنش‌ها</div><div class="ic-val blue">' + toFarsi(tx.length) + '</div></div></div><div class="section"><div class="sec-title">سابقه پرداخت سود</div><div class="table-wrap"><table><thead><tr><th>#</th><th>مبلغ</th><th>تاریخ</th><th>توضیحات</th></tr></thead><tbody>' + paymentRows + '</tbody></table></div></div><div class="section"><div class="sec-title">دفتر کل کامل تراکنش‌ها</div><div class="table-wrap"><table><thead><tr><th>نوع</th><th>مبلغ</th><th>تاریخ</th><th>توضیحات</th></tr></thead><tbody>' + rows + '</tbody></table></div></section></div>';
+}
+function selectArchivedInvestor(id) { selectedArchivedId = id; renderArchive(); }
