@@ -86,9 +86,24 @@ function jalaliInputToGregorian(str) {
 }
 function gregorianToJalaliStr(dateStr) {
   if (!dateStr) return '';
-  const parts = String(dateStr).slice(0, 10).split('-');
-  if (parts.length !== 3) return dateStr;
-  const j = gregorianToJalali(parts[0], parts[1], parts[2]);
+  const raw = String(dateStr).trim()
+    .replace(/[۰-۹]/g, ch => '۰۱۲۳۴۵۶۷۸۹'.indexOf(ch))
+    .replace(/[٠-٩]/g, ch => '٠١٢٣٤٥٦٧٨٩'.indexOf(ch));
+  // If the stored value is already a Jalali date, keep it as Jalali.
+  const jalali = raw.match(/^(1[34]\\d{2})[\\/-](\\d{1,2})[\\/-](\\d{1,2})$/);
+  if (jalali) {
+    const y=Number(jalali[1]), m=Number(jalali[2]), d=Number(jalali[3]);
+    if (m>=1 && m<=12 && d>=1 && d<=(m<=6?31:m<=11?30:30))
+      return `${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}`;
+    return '';
+  }
+  // Accept ISO/Gregorian date strings only; never feed malformed years to the converter.
+  const greg = raw.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/);
+  if (!greg) return '';
+  const gy=Number(greg[1]), gm=Number(greg[2]), gd=Number(greg[3]);
+  if (gy<1900 || gy>2200 || gm<1 || gm>12 || gd<1 || gd>31) return '';
+  const j = gregorianToJalali(gy, gm, gd);
+  if (!Number.isFinite(j.y) || !Number.isFinite(j.m) || !Number.isFinite(j.d)) return '';
   return `${j.y}/${String(j.m).padStart(2,'0')}/${String(j.d).padStart(2,'0')}`;
 }
 
