@@ -1,6 +1,7 @@
 // ===== State =====
 let investors = [];
 let archivedInvestors = [];
+let selectedArchivedId = null;
 let cheques   = [];
 let selectedId = null;
 let editId = null;
