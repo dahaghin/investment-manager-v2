@@ -92,7 +92,6 @@ function renderDetail() {
   const months = buildProfitSchedule(inv).length;
   const curBal = currentBalance(inv);
   const invStatus = investorStatus(inv);
-  const archiveReady = activeCapital(inv) <= 0 && (isSettled(inv) || unpaid(inv) <= 0);
   const statusFa = { Active:'فعال', Settled:'تسویه شده', 'Pending Payment':'در انتظار پرداخت', Overdue:'معوق' }[invStatus] || invStatus;
   const nextDate = nextProfitDate(inv);
 
