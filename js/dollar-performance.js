@@ -23,14 +23,62 @@ function dollarPerfTodayISO() {
   return part('year') + '-' + part('month') + '-' + part('day');
 }
 function dollarPerfTodayJalali() { return dollarPerfISOToJalali(dollarPerfTodayISO()); }
-function dollarPerfDateToISO(value) { return jalaliInputToGregorian(value); }
-function dollarPerfISOToJalali(value) { return gregorianToJalaliStr(value); }
+function dollarPerfDateToISO(value) {
+  if (!value) return '';
+  // Accept the same Jalali date format used by the shared investor calendar,
+  // plus Gregorian dates returned by stored records and ISO timestamps.
+  const raw = String(value).trim().slice(0, 10)
+    .replace(/[۰-۹]/g, ch => '۰۱۲۳۴۵۶۷۸۹'.indexOf(ch))
+    .replace(/[٠-٩]/g, ch => '٠١٢٣٤٥٦٧٨٩'.indexOf(ch))
+    .replace(/[.]/g, '/');
+  const m = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (!m) return '';
+  const y = Number(m[1]), mo = Number(m[2]), day = Number(m[3]);
+  if (mo < 1 || mo > 12 || day < 1 || day > 31) return '';
+  if (y >= 1700) {
+    const date = new Date(Date.UTC(y, mo - 1, day));
+    return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === day
+      ? String(y) + '-' + String(mo).padStart(2, '0') + '-' + String(day).padStart(2, '0')
+      : '';
+  }
+  if (y < 1200) return '';
+  // Use the exact same Jalali -> Gregorian conversion as investor forms.
+  const iso = jalaliInputToGregorian(String(y) + '/' + String(mo) + '/' + String(day));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+  const parts = iso.split('-').map(Number);
+  const roundTrip = gregorianToJalali(parts[0], parts[1], parts[2]);
+  return roundTrip.y === y && roundTrip.m === mo && roundTrip.d === day ? iso : '';
+}
+function dollarPerfISOToJalali(value) {
+  if (!value) return '—';
+  const iso = dollarPerfDateToISO(value);
+  if (!iso) return String(value);
+  const parts = iso.split('-').map(Number);
+  const j = gregorianToJalali(parts[0], parts[1], parts[2]);
+  return String(j.y) + '/' + String(j.m).padStart(2, '0') + '/' + String(j.d).padStart(2, '0');
+}
 function dollarPerfSafe(value) { return typeof escapeHTML === 'function' ? escapeHTML(value) : String(value || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+async function dollarPerfFetchJson(urls, cache = 'no-store') {
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 9000);
+      const response = await fetch(url, { cache, signal: controller.signal });
+      clearTimeout(timeout);
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return await response.json();
+    } catch (e) { lastError = e; }
+  }
+  throw new Error('اتصال به منبع نرخ دلار برقرار نشد: ' + (lastError?.message || 'unknown'));
+}
 async function dollarPerfFetchMarket() {
-  const response = await fetch(DOLLAR_MARKET_LATEST_URL, { cache: 'no-store' });
-  if (!response.ok) throw new Error('منبع نرخ دلار پاسخ نداد (' + response.status + ')');
-  const payload = await response.json();
+  const payload = await dollarPerfFetchJson([
+    DOLLAR_MARKET_LATEST_URL,
+    'https://cdn.jsdelivr.net/gh/iran-market/iran-market.github.io@main/data/popular.json',
+    'https://iran-market.github.io/data/popular.json'
+  ]);
   const item = (payload.data || []).find(x => x.symbol === 'USD_IRR_FREE');
   if (!item || !Number(item.price) || item.currency !== 'IRT') throw new Error('ساختار نرخ دلار معتبر نیست');
   dollarPerfMarket = {
@@ -46,9 +94,11 @@ async function dollarPerfFetchMarket() {
 }
 async function dollarPerfLoadHistory() {
   if (dollarPerfHistory) return dollarPerfHistory;
-  const response = await fetch(DOLLAR_MARKET_HISTORY_URL, { cache: 'force-cache' });
-  if (!response.ok) throw new Error('تاریخچه نرخ دلار در دسترس نیست');
-  const payload = await response.json();
+  const payload = await dollarPerfFetchJson([
+    DOLLAR_MARKET_HISTORY_URL,
+    'https://cdn.jsdelivr.net/gh/iran-market/iran-market.github.io@main/data/history/USD_IRR_FREE.json',
+    'https://iran-market.github.io/data/history/USD_IRR_FREE.json'
+  ], 'force-cache');
   dollarPerfHistory = Array.isArray(payload.data) ? payload.data : [];
   return dollarPerfHistory;
 }
@@ -109,10 +159,20 @@ async function loadDollarPerformance() {
   const el = document.getElementById('dollarPerformanceContent');
   if (el) el.innerHTML = '<div class="dp-loading">در حال دریافت نرخ دلار آزاد و اطلاعات سرمایه…</div>';
   try {
-    await dollarPerfFetchMarket();
-    await dollarPerfCaptureDailyRate();
+    let marketError = null;
+    try {
+      await dollarPerfFetchMarket();
+      await dollarPerfCaptureDailyRate();
+    } catch (e) {
+      marketError = e;
+      console.warn('USD market feed unavailable; showing saved data:', e);
+    }
     await dollarPerfLoadRecords();
     renderDollarPerformance();
+    if (typeof loadInvestorDollarPerformance === 'function') await loadInvestorDollarPerformance(typeof selectedId !== 'undefined' ? selectedId : null);
+    if (marketError && el) {
+      el.insertAdjacentHTML('afterbegin', '<div class="dp-error">دریافت نرخ زنده ممکن نشد؛ اطلاعات ذخیره‌شده نمایش داده شده است. برای ادامه می‌توانی نرخ امروز را دستی وارد کنی. (' + dollarPerfSafe(marketError.message) + ')</div>');
+    }
   } catch (e) {
     if (el) el.innerHTML = '<div class="dp-error">دریافت اطلاعات با خطا مواجه شد: ' + dollarPerfSafe(e.message) + '<button class="btn btn-secondary" onclick="loadDollarPerformance()">تلاش دوباره</button></div>';
   } finally {
@@ -231,13 +291,25 @@ function renderDollarPerformance() {
   const el = document.getElementById('dollarPerformanceContent');
   if (!el) return;
   const today = dollarPerfTodayISO();
-  const firstDate = [...dollarPerfTransactions.map(t=>t.date), ...dollarPerfSnapshots.filter(s=>s.kind==='valuation').map(s=>s.date)].sort()[0] || today;
-  const from = document.getElementById('dpFrom')?.value || dollarPerfISOToJalali(firstDate);
-  const to = document.getElementById('dpTo')?.value || dollarPerfTodayJalali();
-  const fromISO = dollarPerfDateToISO(from);
-  const toISO = dollarPerfDateToISO(to);
-  if (fromISO && toISO && fromISO > toISO) {
-    el.innerHTML = '<div class="dp-error">تاریخ شروع باید قبل از تاریخ پایان باشد.</div>';
+  const storedDates = [...dollarPerfTransactions.map(t=>dollarPerfDateToISO(t.date)), ...dollarPerfSnapshots.filter(s=>s.kind==='valuation').map(s=>dollarPerfDateToISO(s.date))].filter(Boolean).sort();
+  const firstDate = storedDates[0] || today;
+  const requestedFrom = document.getElementById('dpFrom')?.value || '';
+  const requestedTo = document.getElementById('dpTo')?.value || '';
+  const parsedFrom = dollarPerfDateToISO(requestedFrom);
+  const parsedTo = dollarPerfDateToISO(requestedTo);
+  // Invalid/legacy stored values must not blank the whole page: recover to
+  // the first valid record date and today, while keeping the shared calendar usable.
+  const fromISO = parsedFrom || firstDate;
+  const toISO = parsedTo || today;
+  const from = dollarPerfISOToJalali(fromISO);
+  const to = dollarPerfISOToJalali(toISO);
+  if (fromISO > toISO) {
+    const safeFrom = [...dollarPerfTransactions.map(t=>t.date), ...dollarPerfSnapshots.filter(s=>s.kind==='valuation').map(s=>s.date)].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today).sort()[0] || today;
+    const fromEl = document.getElementById('dpFrom');
+    const toEl = document.getElementById('dpTo');
+    if (fromEl) fromEl.value = dollarPerfISOToJalali(safeFrom);
+    if (toEl) toEl.value = dollarPerfTodayJalali();
+    renderDollarPerformance();
     return;
   }
   const report = dollarPerfCompute(fromISO, toISO);
@@ -247,13 +319,12 @@ function renderDollarPerformance() {
   const currentRateStale = toISO === today && dollarPerfMarket?.stale;
   const lastValueUSD = latestValuation ? Number(latestValuation.valueToman) / Number(latestValuation.fxRateToman) : 0;
   const pnlClass = report.profitUSD >= 0 ? 'positive' : 'negative';
-  const txRows = [...dollarPerfTransactions].reverse().slice(0,12).map(t => '<tr><td>' + dollarPerfSafe(t.jalaliDate || dollarPerfISOToJalali(t.date)) + '</td><td>' + (t.type==='deposit'?'افزایش سرمایه':'برداشت') + '</td><td>' + dollarPerfMoney(t.amountToman) + '</td><td>' + dollarPerfMoney(Number(t.amountToman)/Number(t.fxRateToman),'USD') + '</td><td>' + dollarPerfRate(t.fxRateToman) + '</td></tr>').join('');
-  const snapRows = [...dollarPerfSnapshots].filter(s=>s.kind==='valuation').reverse().slice(0,8).map(s=>'<tr><td>'+dollarPerfSafe(s.jalaliDate || dollarPerfISOToJalali(s.date))+'</td><td>'+dollarPerfMoney(s.valueToman)+'</td><td>'+dollarPerfRate(s.fxRateToman)+'</td><td>'+dollarPerfMoney(Number(s.valueToman)/Number(s.fxRateToman),'USD')+'</td></tr>').join('');
+  const txRows = [...dollarPerfTransactions].reverse().slice(0,12).map(t => '<tr><td>' + dollarPerfSafe(dollarPerfISOToJalali(t.date)) + '</td><td>' + (t.type==='deposit'?'افزایش سرمایه':'برداشت') + '</td><td>' + dollarPerfMoney(t.amountToman) + '</td><td>' + dollarPerfMoney(Number(t.amountToman)/Number(t.fxRateToman),'USD') + '</td><td>' + dollarPerfRate(t.fxRateToman) + '</td></tr>').join('');
+  const snapRows = [...dollarPerfSnapshots].filter(s=>s.kind==='valuation').reverse().slice(0,8).map(s=>'<tr><td>'+dollarPerfSafe(dollarPerfISOToJalali(s.date))+'</td><td>'+dollarPerfMoney(s.valueToman)+'</td><td>'+dollarPerfRate(s.fxRateToman)+'</td><td>'+dollarPerfMoney(Number(s.valueToman)/Number(s.fxRateToman),'USD')+'</td></tr>').join('');
   el.innerHTML = '<div class="dp-header"><div><div class="dp-eyebrow">PORTFOLIO · USD BENCHMARK</div><h2>عملکرد دلاری سرمایه</h2><p>آیا رشد سرمایه‌ات از رشد دلار آزاد جلو زده است؟</p></div><div class="dp-header-actions"><button class="btn btn-secondary" onclick="loadDollarPerformance()">↻ به‌روزرسانی نرخ</button><button class="btn btn-gold" onclick="openDollarValuationModal()">ثبت ارزش فعلی سرمایه</button></div></div>' +
   '<div class="dp-rate-strip"><div><span>دلار آزاد امروز</span><strong>' + (currentRate ? dollarPerfRate(currentRate) : '—') + '</strong><small>' + (dollarPerfMarket?.timestampJalali || 'زمان نرخ در دسترس نیست') + '</small></div><div class="dp-rate-source"><span>منبع داده</span><b>Iran Market Data · TGJU</b><small>' + (currentRateStale ? 'هشدار: داده قدیمی است' : 'به‌روزرسانی دوره‌ای حدود ۳۰ دقیقه') + '</small></div><button class="btn btn-secondary btn-sm" onclick="document.getElementById(\'dpManualRate\').value=\'' + (dollarPerfMarket?.rate || '') + '\';document.getElementById(\'dpRateModal\').classList.add(\'show\')">اصلاح نرخ امروز</button></div>' +
   '<div class="dp-filters"><div><label>از تاریخ شمسی</label><div class="jdp-wrap"><input class="fi jdp-input" id="dpFrom" value="' + dollarPerfSafe(from) + '" readonly onclick="jdpOpen(\'dpFrom\',\'jdp_dpFrom\')"><div class="jdp-popup" id="jdp_dpFrom"></div></div></div><div><label>تا تاریخ شمسی</label><div class="jdp-wrap"><input class="fi jdp-input" id="dpTo" value="' + dollarPerfSafe(to) + '" readonly onclick="jdpOpen(\'dpTo\',\'jdp_dpTo\')"><div class="jdp-popup" id="jdp_dpTo"></div></div></div><button class="btn btn-secondary" onclick="renderDollarPerformance()">اعمال بازه</button><button class="btn btn-success" onclick="openDollarFlowModal()">+ ثبت واریز / برداشت</button></div>' +
   '<div class="dp-kpis"><article class="dp-kpi dp-kpi-main"><span>ارزش فعلی سرمایه به دلار</span><strong>' + (latestValuation ? dollarPerfMoney(lastValueUSD,'USD') : '—') + '</strong><small>' + (latestValuation ? 'ارزش تومانی ثبت‌شده ÷ نرخ همان روز' : 'ابتدا ارزش فعلی سرمایه را ثبت کن') + '</small></article><article class="dp-kpi"><span>سود / زیان دلاری در بازه</span><strong class="' + pnlClass + '">' + (report.hasEnd ? (report.profitUSD>=0?'+':'') + dollarPerfMoney(report.profitUSD,'USD') : '—') + '</strong><small class="' + pnlClass + '">' + (report.percentUSD>=0?'+':'') + report.percentUSD.toFixed(2) + '% نسبت به سرمایه مبنا</small></article><article class="dp-kpi"><span>سود / زیان تومانی در بازه</span><strong class="' + (report.profitToman>=0?'positive':'negative') + '">' + (report.hasEnd ? (report.profitToman>=0?'+':'') + dollarPerfMoney(report.profitToman) : '—') + '</strong><small>برای مقایسه با بازده دلاری</small></article><article class="dp-kpi"><span>نرخ دلار مبنا</span><strong>' + (currentRate ? dollarPerfRate(currentRate) : '—') + '</strong><small>نرخ آزاد بازار ایران</small></article></div>' +
-  '<div class="dp-grid"><section class="dp-panel dp-performance"><div class="dp-panel-title"><div><h3>نتیجه عملکرد در بازه انتخابی</h3><p>محاسبه با لحاظ واریز و برداشت‌های ثبت‌شده</p></div><span class="dp-period">' + dollarPerfSafe(report.start?.jalaliDate || (report.start ? dollarPerfISOToJalali(report.start.date) : 'ابتدای دوره')) + ' تا ' + dollarPerfSafe(report.end?.jalaliDate || (report.end ? dollarPerfISOToJalali(report.end.date) : to)) + '</span></div><div class="dp-comparison"><div><small>ارزش ابتدای بازه</small><b>' + dollarPerfMoney(report.startUSD,'USD') + '</b></div><div><small>واریزهای دلاری</small><b>' + dollarPerfMoney(report.depositsUSD,'USD') + '</b></div><div><small>برداشت‌های دلاری</small><b>' + dollarPerfMoney(report.withdrawalsUSD,'USD') + '</b></div><div><small>ارزش پایان بازه</small><b>' + dollarPerfMoney(report.endUSD,'USD') + '</b></div></div><div class="dp-formula">سود دلاری = ارزش پایان − ارزش شروع − واریزها + برداشت‌ها</div></section><section class="dp-panel dp-chart-panel"><div class="dp-panel-title"><div><h3>روند ارزش دلاری سرمایه</h3><p>بر اساس ثبت‌های ارزش‌گذاری</p></div></div>' + dollarPerfSparkline() + '</section></div>' +
   '<div class="dp-grid"><section class="dp-panel"><div class="dp-panel-title"><div><h3>تراکنش‌های سرمایه</h3><p>مبنای دلاری هر واریز و برداشت با نرخ همان روز</p></div></div><div class="dp-table-wrap"><table><thead><tr><th>تاریخ</th><th>نوع</th><th>مبلغ تومانی</th><th>معادل دلاری</th><th>نرخ دلار</th></tr></thead><tbody>' + (txRows || '<tr><td colspan="5" class="dp-empty">هنوز واریز یا برداشتی ثبت نشده است.</td></tr>') + '</tbody></table></div></section><section class="dp-panel"><div class="dp-panel-title"><div><h3>تاریخچه ارزش سرمایه</h3><p>ثبت‌های ارزش‌گذاری در تاریخ‌های مختلف</p></div></div><div class="dp-table-wrap"><table><thead><tr><th>تاریخ</th><th>ارزش تومانی</th><th>نرخ دلار</th><th>ارزش دلاری</th></tr></thead><tbody>' + (snapRows || '<tr><td colspan="4" class="dp-empty">برای شروع، ارزش فعلی سرمایه را ثبت کن.</td></tr>') + '</tbody></table></div></section></div>' +
-  '<div class="dp-footnote">نرخ بازار آزاد از منبع عمومی Iran Market Data دریافت می‌شود و معمولاً هر ۳۰ دقیقه منتشر می‌شود. نرخ‌ها و ارزش‌گذاری‌ها با تاریخ ثبت‌شده نگه‌داری می‌شوند. ثبت روزانه خودکار نرخ هنگام بازکردن داشبورد انجام می‌شود؛ برای ثبت در روزهایی که وارد سایت نمی‌شوی، اجرای زمان‌بندی‌شده سمت سرور لازم است. این گزارش بر اساس ارزش‌گذاری‌هایی است که خودت ثبت می‌کنی و نرخ‌های تاریخی روزانه.</div>';
+  '<div class="dp-footnote">نرخ بازار آزاد از منبع عمومی Iran Market Data دریافت می‌شود و معمولاً هر ۳۰ دقیقه منتشر می‌شود. نرخ‌ها و ارزش‌گذاری‌ها با تاریخ ثبت‌شده نگه‌داری می‌شوند. ثبت روزانه خودکار نرخ هنگام بازکردن داشبورد انجام می‌شود؛ برای ثبت در روزهایی که وارد سایت نمی‌شوی، اجرای زمان‌بندی‌شده سمت سرور لازم است. این گزارش بر اساس ارزش‌گذاری‌هایی است که خودت ثبت می‌کنی و نرخ‌های تاریخی روزانه.</div>' + '<div id="investorDollarComparison"></div>';
 }

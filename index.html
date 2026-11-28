@@ -59,34 +59,36 @@
 
   <div class="tabs">
     <div class="tab active" data-tab="investors" onclick="switchTab('investors')">👥 سرمایه‌گذاران</div>
+    <div class="tab" data-tab="archive" onclick="switchTab('archive')">🗄️ بایگانی</div>
     <div class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">📈 داشبورد مدیریت</div>
     <div class="tab" data-tab="cheques" onclick="switchTab('cheques')">🏦 چک‌ها</div>
     <div class="tab" data-tab="report" onclick="switchTab('report')">📊 گزارش کلی</div>
     <div class="tab" data-tab="personal" onclick="switchTab('personal')">🧾 گزارش فردی</div>
-    <div class="tab" data-tab="my-investments" onclick="switchTab('my-investments')">💼 سرمایه‌گذاری‌های من</div>
+    
     <div class="tab" data-tab="dollar-performance" onclick="switchTab('dollar-performance')">💵 عملکرد دلاری</div>
+
   </div>
 
   <div class="stats-bar" style="grid-template-columns: repeat(5,1fr)">
     <div class="stat-card s-gold">
       <div class="stat-label">Total Active Capital</div>
       <div class="stat-val" id="stCapital">—</div>
-      <div class="stat-sub">تومان</div>
+      <div class="stat-sub">تفکیک‌شده بر اساس ارز</div>
     </div>
     <div class="stat-card s-green">
       <div class="stat-label">Total Accumulated Profit</div>
       <div class="stat-val" id="stMonthly">—</div>
-      <div class="stat-sub">تومان / ماه</div>
+      <div class="stat-sub">تفکیک‌شده بر اساس ارز</div>
     </div>
     <div class="stat-card s-blue">
       <div class="stat-label">Settlement Amount Today</div>
       <div class="stat-val" id="stCount">—</div>
-      <div class="stat-sub">تومان</div>
+      <div class="stat-sub">تفکیک‌شده بر اساس ارز</div>
     </div>
     <div class="stat-card s-red">
       <div class="stat-label">Total Paid Profit</div>
       <div class="stat-val" id="stUnpaid">—</div>
-      <div class="stat-sub">تومان</div>
+      <div class="stat-sub">تفکیک‌شده بر اساس ارز</div>
     </div>
     <div class="stat-card" style="--c:var(--purple)" onclick="switchTab('cheques')" class="stat-card" style="cursor:pointer">
       <div class="stat-label">⏰ چک‌های این هفته</div>
@@ -118,6 +120,9 @@
         <div id="detailPanel" style="display:none"></div>
       </div>
 
+      <!-- Archived investors -->
+      <div class="page" id="tab-archive"><div id="archiveContent"></div></div>
+
       <!-- Dashboard tab -->
       <div class="page" id="tab-dashboard">
         <div id="dashboardContent"></div>
@@ -137,7 +142,6 @@
       <div class="page" id="tab-personal">
         <div id="personalContent"></div>
       </div>
-      <div class="page" id="tab-my-investments"><div id="myInvestmentsContent"></div></div>
       <div class="page" id="tab-dollar-performance"><div id="dollarPerformanceContent"></div></div>
     </div>
   </div>
@@ -145,10 +149,11 @@
   <nav class="mobile-bottom-nav" aria-label="ناوبری موبایل">
     <button class="mobile-nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')"><span>🏠</span><b>Home</b></button>
     <button class="mobile-nav-item" data-tab="investors" onclick="switchTab('investors')"><span>👥</span><b>Investors</b></button>
+    <button class="mobile-nav-item" data-tab="archive" onclick="switchTab('archive')"><span>🗄️</span><b>Archive</b></button>
     <button class="mobile-nav-item" data-tab="cheques" onclick="switchTab('cheques')"><span>💳</span><b>Transactions</b></button>
     <button class="mobile-nav-item" data-tab="report" onclick="switchTab('report')"><span>📊</span><b>Reports</b></button>
     <button class="mobile-nav-item" data-tab="personal" onclick="switchTab('personal')"><span>🧾</span><b>Reports</b></button>
-    <button class="mobile-nav-item" data-tab="my-investments" onclick="switchTab('my-investments')"><span>💼</span><b>My Invest.</b></button>
+    
     <button class="mobile-nav-item" data-tab="dollar-performance" onclick="switchTab('dollar-performance')"><span>💵</span><b>USD P/L</b></button>
   </nav>
 </div>
@@ -167,7 +172,10 @@
 <div class="overlay" id="myEntryModal"><div class="modal">
 <div class="modal-title" id="myEntryTitle">ثبت عملکرد ماهانه</div>
 <div class="fg"><label class="fl">ماه *</label><input class="fi" id="myEntryMonth" type="month"></div>
-<div class="frow"><div class="fg"><label class="fl">سود ایجادشده در ماه</label><input class="fi" id="myEntryProfit" type="number" min="0" step="0.01"></div><div class="fg"><label class="fl">سود واقعاً دریافت‌شده</label><input class="fi" id="myEntryReceived" type="number" min="0" step="0.01"></div></div>
+<div class="frow"><div class="fg"><label class="fl">درصد سود این ماه *</label><input class="fi" id="myEntryRate" type="number" min="0" step="0.01" oninput="updateMyEntryCalculatedProfit()"></div><div class="fg"><label class="fl">مبنای محاسبه سود</label><input class="fi" id="myEntryBasis" readonly></div></div>
+<div class="frow"><div class="fg"><label class="fl">سود محاسبه‌شده این ماه</label><input class="fi" id="myEntryProfit" type="number" min="0" step="0.01"></div><div class="fg"><label class="fl">سود واقعاً دریافت‌شده</label><input class="fi" id="myEntryReceived" type="number" min="0" step="0.01"></div></div>
+<div class="dp-modal-help">سود به‌صورت خودکار از مبنای سرمایه × درصد ماهانه محاسبه می‌شود. در صورت نیاز می‌توانی مبلغ واقعی را اصلاح کنی.</div>
+<div class="frow"><div class="fg"><label class="fl">سود دریافتی و سرمایه‌گذاری مجدد</label><input class="fi" id="myEntryReinvested" type="number" min="0" step="0.01" value="0"></div><div class="fg"><label class="fl">سود دریافت‌نشده و اضافه‌شده به اصل</label><input class="fi" id="myEntryCapitalized" type="number" min="0" step="0.01" value="0"></div></div>
 <div class="fg"><label class="fl">اصل سرمایه برگشتی</label><input class="fi" id="myEntryCapital" type="number" min="0" step="0.01"></div>
 <div class="fg"><label class="fl">توضیحات</label><textarea class="fi" id="myEntryNotes" rows="2"></textarea></div>
 <div class="m-actions"><button class="btn btn-secondary" onclick="closeModal('myEntryModal')">انصراف</button><button class="btn btn-success" onclick="saveMyInvestmentEntry()">ثبت عملکرد</button></div>
@@ -210,7 +218,8 @@
       <div class="fg"><label class="fl">شماره تماس</label><input class="fi" id="f_phone" placeholder="۰۹۱۲۳۴۵۶۷۸۹"></div>
     </div>
     <div class="frow">
-      <div class="fg"><label class="fl">مبلغ سرمایه (تومان) *</label><input class="fi" id="f_capital" type="number" placeholder="100000000"></div>
+      <div class="fg"><label class="fl">واحد پول *</label><select class="fi" id="f_currency"><option value="IRT">تومان (IRR)</option><option value="USD">دلار آمریکا (USD)</option><option value="AED">درهم امارات (AED)</option></select></div>
+      <div class="fg"><label class="fl">مبلغ سرمایه *</label><input class="fi" id="f_capital" type="number" placeholder="100000000"></div>
       <div class="fg"><label class="fl">نرخ سود ماهیانه (٪) *</label><input class="fi" id="f_rate" type="number" step="0.1" placeholder="3"></div>
     </div>
     <div class="frow">
@@ -336,6 +345,7 @@
 <script src="js/investors.js"></script>
 <script src="js/my-investments.js"></script>
 <script src="js/dollar-performance.js"></script>
+<script src="js/investor-dollar-performance.js"></script>
 <link rel="stylesheet" href="css/beta3.css">
 <script src="js/mobile.js"></script>
 <script src="js/app.js"></script>

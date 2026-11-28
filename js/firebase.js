@@ -27,7 +27,6 @@ auth.onAuthStateChanged(user => {
     document.getElementById('headerDate').textContent = jalaliToday();
     ensureV2Settings();
     loadInvestors();
-    loadMyInvestments();
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('app').classList.remove('show');
@@ -91,11 +90,13 @@ function investorFromDoc(doc, tx = []) {
     name: data.fullName || data.name || '',
     phone: data.phone || '',
     monthlyInterestRate: Number(data.monthlyInterestRate ?? data.rate ?? 0),
+    currency: ['IRT','USD','AED'].includes(data.currency) ? data.currency : 'IRT',
     rate: Number(data.monthlyInterestRate ?? data.rate ?? 0),
     status: data.status || 'Active',
     startDate: normalizeISODate(data.startDate || firstDeposit?.date || todayGregorian()),
     capital: Number(firstDeposit?.amount || data.capital || 0),
     notes: data.notes || '',
+    archivedAt: data.archivedAt || null,
     createdAt: data.createdAt,
     transactions,
     payments: profitPayments
@@ -116,13 +117,22 @@ async function loadInvestors() {
     list.sort((a, b) => String(a.data().date || '').localeCompare(String(b.data().date || '')));
     txByInvestor.set(data.investorId, list);
   });
-  investors = invSnap.docs.map(doc => investorFromDoc(doc, txByInvestor.get(doc.id) || []))
+  const allInvestors = invSnap.docs.map(doc => investorFromDoc(doc, txByInvestor.get(doc.id) || []))
     .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  archivedInvestors = allInvestors.filter(inv => !!inv.archivedAt);
+  investors = allInvestors.filter(inv => !inv.archivedAt);
+  if (selectedId && !investors.some(inv => inv.id === selectedId)) selectedId = investors[0]?.id || null;
   cheques = chqSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderList();
   updateStats();
   if (investors.length > 0 && !selectedId) selectedId = investors[0].id;
   if (selectedId) { renderList(); renderDetail(); }
+  else {
+    const empty = document.getElementById('emptyState');
+    const detail = document.getElementById('detailPanel');
+    if (empty) empty.style.display = 'flex';
+    if (detail) { detail.style.display = 'none'; detail.innerHTML = ''; }
+  }
   if (typeof isMobileLayout === 'function' && isMobileLayout() && !document.body.dataset.mobileInitialTab) {
     document.body.dataset.mobileInitialTab = 'true';
     switchTab('dashboard');
@@ -156,6 +166,13 @@ async function saveTransactionDB(tx) {
 
 async function deleteTransactionDB(id) {
   await txCol().doc(id).delete();
+}
+
+async function archiveInvestorDB(id, archived = true) {
+  const ref = invCol().doc(id);
+  if (archived) await ref.update({ archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  else await ref.update({ archivedAt: null, updatedAt: new Date().toISOString() });
+  await loadInvestors();
 }
 
 async function deleteInvestorDB(id) {

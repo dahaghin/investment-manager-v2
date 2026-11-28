@@ -19,34 +19,43 @@ function renderManagementDashboard() {
     el.innerHTML = '<div class="empty-state"><div class="ei">📈</div><p>برای نمایش داشبورد، ابتدا سرمایه‌گذار اضافه کنید</p></div>';
     return;
   }
-  const k = portfolioKpis();
-  el.innerHTML = `
-    <div class="dashboard-toolbar">
-      <div><div class="report-title">داشبورد مدیریت</div><div class="dash-subtitle">نمای ۳۶۰ درجه از سرمایه، سود، ریسک پرداخت و عملیات</div></div>
-      <div class="dash-actions">
-        <button class="btn btn-secondary" onclick="createBackup()">💾 پشتیبان</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('restoreFile').click()">♻️ بازیابی</button>
-        <input id="restoreFile" type="file" accept="application/json" style="display:none" onchange="restoreBackupFile(event)">
-        <button class="btn btn-gold" onclick="exportPortfolioCSV()">📄 خروجی CSV</button>
-      </div>
-    </div>
-    <div class="dash-kpis">
-      ${dashboardKpi('سرمایه فعال', formatMoney(k.totalCap), 'gold', 'مجموع اصل سرمایه در جریان')}
-      ${dashboardKpi('سود انباشته', formatMoney(k.totalProfitAll), 'blue', 'کل سود محاسبه‌شده')}
-      ${dashboardKpi('سود پرداخت‌شده', formatMoney(k.paidProfit), 'green', 'پرداخت‌های تخصیص‌یافته به سود')}
-      ${dashboardKpi('تعهد کل صندوق', formatMoney(k.totalLiability), 'red', 'سرمایه فعال + سود پرداخت‌نشده')}
-      ${dashboardKpi('سرمایه‌گذاران فعال', toFarsi(k.activeCount), 'purple', `${toFarsi(k.overdueCount)} معوق`)}
-      ${dashboardKpi('سررسیدهای این ماه', formatMoney(k.dueThisMonth), 'blue', 'پرداخت‌های سود ماه جاری')}
-    </div>
-    <div class="dashboard-grid">
-      <div class="dash-panel"><div class="chart-title">توزیع سرمایه سرمایه‌گذاران</div>${renderCapitalPie()}</div>
-      <div class="dash-panel"><div class="chart-title">سرمایه فعال هر سرمایه‌گذار</div>${renderActiveCapitalBars()}</div>
-      <div class="dash-panel wide"><div class="chart-title">روند ۱۲ ماهه سرمایه، سود انباشته و سود پرداختی</div>${renderTwelveMonthTrend()}</div>
-      <div class="dash-panel"><div class="chart-title">پرداخت سود ماهانه</div>${renderMonthlyPaidProfitChart()}</div>
-      <div class="dash-panel"><div class="chart-title">هشدارها</div>${renderAlerts()}</div>
-      <div class="dash-panel"><div class="chart-title">آخرین رویدادهای سرمایه‌گذاران</div>${renderTimeline()}</div>
-    </div>
-    ${renderMyInvestmentDashboardSummary()}`;
+  const allInvestors = investors;
+  const currencies = ['IRT','USD','AED'].filter(code => allInvestors.some(inv => (inv.currency || 'IRT') === code));
+  const sections = [];
+  try {
+    for (const currency of currencies) {
+      investors = allInvestors.filter(inv => (inv.currency || 'IRT') === currency);
+      const k = portfolioKpis();
+      const label = investorCurrencyLabel(currency);
+      sections.push(`
+        <section class="currency-dashboard-section">
+          <div class="dashboard-toolbar"><div><div class="report-title">داشبورد ${label}</div><div class="dash-subtitle">تمام جمع‌ها فقط در همین واحد پول محاسبه شده‌اند</div></div></div>
+          <div class="dash-kpis">
+            ${dashboardKpi('سرمایه فعال', investorMoney({currency},k.totalCap), 'gold', 'مجموع اصل سرمایه در جریان')}
+            ${dashboardKpi('سود انباشته', investorMoney({currency},k.totalProfitAll), 'blue', 'کل سود محاسبه‌شده')}
+            ${dashboardKpi('سود پرداخت‌شده', investorMoney({currency},k.paidProfit), 'green', 'پرداخت‌های تخصیص‌یافته به سود')}
+            ${dashboardKpi('تعهد کل صندوق', investorMoney({currency},k.totalLiability), 'red', 'سرمایه فعال + سود پرداخت‌نشده')}
+            ${dashboardKpi('سرمایه‌گذاران فعال', toFarsi(k.activeCount), 'purple', `${toFarsi(k.overdueCount)} معوق`)}
+            ${dashboardKpi('سررسیدهای این ماه', investorMoney({currency},k.dueThisMonth), 'blue', 'پرداخت‌های سود ماه جاری')}
+          </div>
+          <div class="dashboard-grid">
+            <div class="dash-panel"><div class="chart-title">توزیع سرمایه سرمایه‌گذاران</div>${renderCapitalPie()}</div>
+            <div class="dash-panel"><div class="chart-title">سرمایه فعال هر سرمایه‌گذار</div>${renderActiveCapitalBars()}</div>
+            <div class="dash-panel wide"><div class="chart-title">روند ۱۲ ماهه سرمایه، سود انباشته و سود پرداختی</div>${renderTwelveMonthTrend()}</div>
+            <div class="dash-panel"><div class="chart-title">پرداخت سود ماهانه</div>${renderMonthlyPaidProfitChart()}</div>
+            <div class="dash-panel"><div class="chart-title">هشدارها</div>${renderAlerts()}</div>
+            <div class="dash-panel"><div class="chart-title">آخرین رویدادهای سرمایه‌گذاران</div>${renderTimeline()}</div>
+          </div>
+        </section>`);
+    }
+  } catch (error) {
+    console.error('Management dashboard render failed:', error);
+    el.innerHTML = '<div class="dp-error">خطا در ساخت داشبورد: ' + escapeHTML(error.message || error) + '</div>';
+    return;
+  } finally {
+    investors = allInvestors;
+  }
+  el.innerHTML = '<div class="dashboard-toolbar"><div><div class="report-title">داشبورد عملکرد کلی سرمایه‌گذاران</div><div class="dash-subtitle">گزارش تفکیک‌شده بر اساس واحد پول؛ بدون جمع‌زدن تومان، دلار و درهم</div></div><div class="dash-actions"><button class="btn btn-secondary" onclick="createBackup()">💾 پشتیبان</button><button class="btn btn-secondary" onclick="document.getElementById(\'restoreFile\').click()">♻️ بازیابی</button><input id="restoreFile" type="file" accept="application/json" style="display:none" onchange="restoreBackupFile(event)"><button class="btn btn-gold" onclick="exportPortfolioCSV()">📄 خروجی CSV</button></div></div>' + sections.join('');
 }
 function dashboardKpi(label, value, tone, sub) { return `<div class="dash-kpi ${tone}"><div class="ic-label">${label}</div><div class="ic-val">${value}</div><div class="ic-sub">${sub}</div></div>`; }
 function chartPalette(i) { return ['#d4af37','#4cc9f0','#52b788','#e63946','#9b5de5','#f77f00','#00b4d8','#f72585'][i % 8]; }

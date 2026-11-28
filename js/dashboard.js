@@ -1,12 +1,21 @@
 // ===== Stats =====
 function updateStats() {
-  document.getElementById('stCapital').textContent = formatMoney(investors.reduce((s,i) => s+activeCapital(i),0));
-  document.getElementById('stMonthly').textContent = formatMoney(investors.reduce((s,i) => s+totalProfit(i),0));
-  document.getElementById('stCount').textContent = formatMoney(investors.reduce((sum, inv) => sum + getInvestorTransactions(inv).filter(t => t.type === 'settlement' && t.date === todayGregorian()).reduce((s,t) => s + Number(t.amount), 0), 0));
-  document.getElementById('stUnpaid').textContent = formatMoney(investors.reduce((s,i) => s+totalPaid(i),0));
-  // Cheques due in next 7 days
+  const grouped = (selector) => {
+    const rows = ['IRT','USD','AED'].map(currency => {
+      const total = investors.filter(i => (i.currency || 'IRT') === currency)
+        .reduce((sum, inv) => sum + Number(selector(inv) || 0), 0);
+      if (!total) return '';
+      const label = currency === 'IRT' ? 'تومان' : currency === 'USD' ? 'دلار آمریکا' : 'درهم امارات';
+      return '<div class="stat-currency-row"><span>' + label + '</span><strong>' + investorMoney({currency}, total) + '</strong></div>';
+    }).filter(Boolean);
+    return rows.length ? '<div class="stat-currency-lines">' + rows.join('') + '</div>' : '—';
+  };
+  document.getElementById('stCapital').innerHTML = grouped(activeCapital);
+  document.getElementById('stMonthly').innerHTML = grouped(totalProfit);
+  document.getElementById('stCount').innerHTML = grouped(inv => getInvestorTransactions(inv).filter(t => t.type === 'settlement' && t.date === todayGregorian()).reduce((s,t) => s + Number(t.amount), 0));
+  document.getElementById('stUnpaid').innerHTML = grouped(totalPaid);
   const todayG = todayGregorian();
-  const in7G   = new Date(); in7G.setDate(in7G.getDate()+7);
+  const in7G = new Date(); in7G.setDate(in7G.getDate()+7);
   const in7Str = in7G.toISOString().split('T')[0];
   const alertCount = cheques.filter(c => !c.cashed && c.dueDate >= todayG && c.dueDate <= in7Str).length;
   const overdueCount = cheques.filter(c => !c.cashed && c.dueDate < todayG).length;
@@ -29,7 +38,9 @@ function switchTab(tab) {
   if (tab === 'personal') renderPersonal();
   if (tab === 'my-investments') renderMyInvestments();
   if (tab === 'dollar-performance') loadDollarPerformance();
+  if (tab === 'investor-dollar') loadInvestorDollarPerformance();
   if (tab === 'cheques')  renderCheques();
+  if (tab === 'archive') renderArchive();
 }
 
 
@@ -44,7 +55,7 @@ function renderList() {
       <div class="avatar">${inv.name.charAt(0)}</div>
       <div class="inv-info">
         <div class="inv-name">${inv.name}</div>
-        <div class="inv-amt">${formatMoney(activeCapital(inv))} تومان</div>
+        <div class="inv-amt">${investorMoney(inv, activeCapital(inv))}</div>
       </div>
       <div class="inv-badge">${toFarsi(inv.rate)}٪</div>
     </div>
@@ -57,6 +68,11 @@ function selectInv(id) {
   selectedId = id;
   renderList();
   renderDetail();
+  // When the USD performance page is open, selecting a name in the shared
+  // investor sidebar immediately recalculates that investor's USD comparison.
+  if (document.getElementById('tab-dollar-performance')?.classList.contains('active')) {
+    if (typeof loadInvestorDollarPerformance === 'function') loadInvestorDollarPerformance(id);
+  }
   if (window.innerWidth < 700) {
     document.querySelector('.content-area').scrollIntoView({ behavior: 'smooth' });
   }
@@ -86,7 +102,7 @@ function renderDetail() {
     : [...payments].reverse().map((p,i) => `
       <tr>
         <td>${toFarsi(payments.length - i)}</td>
-        <td>${formatMoney(p.amount)} تومان</td>
+        <td>${investorMoney(inv, p.amount)}</td>
         <td>${milToJalali(p.date)}</td>
         <td>${p.note || '—'}</td>
         <td><button class="btn btn-danger btn-sm" onclick="deletePayment('${inv.id}','${p.id}')">حذف</button></td>
@@ -106,17 +122,18 @@ function renderDetail() {
         <button class="btn btn-success" onclick="openPayModal('${inv.id}')">+ پرداخت</button>
         <button class="btn btn-gold" onclick="openTransactionModal('${inv.id}')">+ تراکنش</button>
         <button class="btn btn-secondary" onclick="openEditModal('${inv.id}')">ویرایش</button>
+        <button class="btn btn-secondary" onclick="archiveInvestor('${inv.id}')" title="ابتدا تسویه کامل اصل و سود را بررسی می‌کند">🗄️ بایگانی</button>
         <button class="btn btn-danger" onclick="confirmDelete('${inv.id}')">حذف</button>
       </div>
     </div>
 
     <div class="info-grid">
-      <div class="ic"><div class="ic-label">Active Capital</div><div class="ic-val gold">${formatMoney(activeCapital(inv))}</div><div class="ic-sub">سرمایه فعال</div></div>
-      <div class="ic"><div class="ic-label">Current Account Value</div><div class="ic-val gold">${formatMoney(Math.round(curBal))}</div><div class="ic-sub">اصل + سود انباشته</div></div>
-      <div class="ic"><div class="ic-label">Next Profit Date</div><div class="ic-val green">${nextDate ? milToJalali(nextDate) : '—'}</div><div class="ic-sub">سود بعدی: ${formatMoney(Math.round(mp))}</div></div>
-      <div class="ic"><div class="ic-label">Accumulated Profit (${toFarsi(months)} ماه)</div><div class="ic-val blue">${formatMoney(Math.round(tp))}</div><div class="ic-sub">از ${milToJalali(inv.startDate)}</div></div>
-      <div class="ic"><div class="ic-label">Paid Profit</div><div class="ic-val green">${formatMoney(paid)}</div><div class="ic-sub">سود پرداخت‌شده</div></div>
-      <div class="ic"><div class="ic-label">Status</div><div class="ic-val ${invStatus === 'Overdue' ? 'red' : invStatus === 'Settled' ? 'green' : 'blue'}">${statusFa}</div><div class="ic-sub">سود پرداخت‌نشده: ${formatMoney(Math.round(due))}</div></div>
+      <div class="ic"><div class="ic-label">Active Capital</div><div class="ic-val gold">${investorMoney(inv, activeCapital(inv))}</div><div class="ic-sub">سرمایه فعال</div></div>
+      <div class="ic"><div class="ic-label">Current Account Value</div><div class="ic-val gold">${investorMoney(inv, Math.round(curBal))}</div><div class="ic-sub">اصل + سود انباشته</div></div>
+      <div class="ic"><div class="ic-label">Next Profit Date</div><div class="ic-val green">${nextDate ? milToJalali(nextDate) : '—'}</div><div class="ic-sub">سود بعدی: ${investorMoney(inv, Math.round(mp))}</div></div>
+      <div class="ic"><div class="ic-label">Accumulated Profit (${toFarsi(months)} ماه)</div><div class="ic-val blue">${investorMoney(inv, Math.round(tp))}</div><div class="ic-sub">از ${milToJalali(inv.startDate)}</div></div>
+      <div class="ic"><div class="ic-label">Paid Profit</div><div class="ic-val green">${investorMoney(inv, paid)}</div><div class="ic-sub">سود پرداخت‌شده</div></div>
+      <div class="ic"><div class="ic-label">Status</div><div class="ic-val ${invStatus === 'Overdue' ? 'red' : invStatus === 'Settled' ? 'green' : 'blue'}">${statusFa}</div><div class="ic-sub">سود پرداخت‌نشده: ${investorMoney(inv, Math.round(due))}</div></div>
     </div>
 
     <div class="section">
@@ -154,8 +171,24 @@ function renderTransactionRows(inv) {
   return [...rows].reverse().map(t => `
     <tr>
       <td>${transactionTypeLabel(t.type)}</td>
-      <td>${formatMoney(t.amount)} تومان</td>
+      <td>${investorMoney(inv, t.amount)}</td>
       <td>${milToJalali(t.date)}</td>
       <td>${t.description || '—'}</td>
     </tr>`).join('');
 }
+
+function renderArchive() {
+  const host = document.getElementById('archiveContent');
+  if (!host) return;
+  const list = archivedInvestors || [];
+  if (!list.length) { host.innerHTML = '<div class="empty-state"><div class="ei">🗄️</div><p>هنوز سرمایه‌گذاری‌ای بایگانی نشده است.</p><small>پس از تسویه کامل، از صفحه سرمایه‌گذار دکمه بایگانی را بزنید.</small></div>'; return; }
+  if (!selectedArchivedId || !list.some(inv => inv.id === selectedArchivedId)) selectedArchivedId = list[0].id;
+  const inv = list.find(x => x.id === selectedArchivedId);
+  const items = list.map(x => '<button class="archive-item ' + (x.id === inv.id ? 'active' : '') + '" onclick="selectArchivedInvestor(\'' + x.id + '\')"><b>' + (x.name || x.fullName || 'بدون نام') + '</b><span>' + investorMoney(x, activeCapital(x)) + '</span><small>بایگانی: ' + milToJalali(String(x.archivedAt).slice(0,10)) + '</small></button>').join('');
+  const tx = getInvestorTransactions(inv);
+  const rows = tx.length ? [...tx].reverse().map(t => '<tr><td>' + transactionTypeLabel(t.type) + '</td><td>' + investorMoney(inv,t.amount) + '</td><td>' + milToJalali(t.date) + '</td><td>' + (t.description || '—') + '</td></tr>').join('') : '<tr><td colspan="4">تراکنشی ثبت نشده است.</td></tr>';
+  const payments = tx.filter(t => t.type === 'profit_payment');
+  const paymentRows = payments.length ? [...payments].reverse().map((t,i) => '<tr><td>' + toFarsi(payments.length-i) + '</td><td>' + investorMoney(inv,t.amount) + '</td><td>' + milToJalali(t.date) + '</td><td>' + (t.description || 'پرداخت سود') + '</td></tr>').join('') : '<tr><td colspan="4">پرداخت سودی ثبت نشده است.</td></tr>';
+  host.innerHTML = '<div class="archive-layout"><aside class="archive-list"><div class="sec-title">سرمایه‌گذاران بایگانی‌شده <span>' + toFarsi(list.length) + ' نفر</span></div>' + items + '</aside><section class="archive-detail"><div class="detail-head"><div><div class="d-name">' + (inv.name || inv.fullName || 'بدون نام') + '</div><div class="d-phone">' + (inv.phone || 'شماره ثبت نشده') + ' · بایگانی در ' + milToJalali(String(inv.archivedAt).slice(0,10)) + '</div></div><div class="dh-actions"><button class="btn btn-secondary" onclick="restoreArchivedInvestor(\'' + inv.id + '\')">بازگرداندن به سرمایه‌گذاران فعال</button></div></div><div class="info-grid"><div class="ic"><div class="ic-label">واحد سرمایه</div><div class="ic-val gold">' + investorCurrencyLabel(inv.currency || 'IRT') + '</div></div><div class="ic"><div class="ic-label">کل پرداخت سود ثبت‌شده</div><div class="ic-val green">' + investorMoney(inv,totalPaid(inv)) + '</div></div><div class="ic"><div class="ic-label">تعداد تراکنش‌ها</div><div class="ic-val blue">' + toFarsi(tx.length) + '</div></div></div><div class="section"><div class="sec-title">سابقه پرداخت سود</div><div class="table-wrap"><table><thead><tr><th>#</th><th>مبلغ</th><th>تاریخ</th><th>توضیحات</th></tr></thead><tbody>' + paymentRows + '</tbody></table></div></div><div class="section"><div class="sec-title">دفتر کل کامل تراکنش‌ها</div><div class="table-wrap"><table><thead><tr><th>نوع</th><th>مبلغ</th><th>تاریخ</th><th>توضیحات</th></tr></thead><tbody>' + rows + '</tbody></table></div></section></div>';
+}
+function selectArchivedInvestor(id) { selectedArchivedId = id; renderArchive(); }

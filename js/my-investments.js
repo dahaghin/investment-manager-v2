@@ -21,10 +21,10 @@ function personalCurrencyTotals() {
     const items = myInvestments.filter(i => i.currency === currency && i.status !== 'closed');
     const entries = myInvestmentEntries.filter(e => items.some(i => i.id === e.investmentId));
     out[currency] = {
-      principal: items.reduce((s, i) => s + Math.max(0, Number(i.principal || 0) - entries.filter(e => e.investmentId === i.id).reduce((a, e) => a + Number(e.capitalReturned || 0), 0)), 0),
+      principal: items.reduce((s, i) => s + Math.max(0, Number(i.principal || 0) - entries.filter(e => e.investmentId === i.id).reduce((a, e) => a + Number(e.capitalReturned || 0), 0) + entries.filter(e => e.investmentId === i.id).reduce((a, e) => a + Number(e.reinvestedAmount || 0) + Number(e.capitalizedAmount || 0), 0)), 0),
       earned: entries.reduce((s, e) => s + Number(e.profitAmount || 0), 0),
       received: entries.reduce((s, e) => s + Number(e.receivedAmount || 0), 0),
-      outstanding: entries.reduce((s, e) => s + Math.max(0, Number(e.profitAmount || 0) - Number(e.receivedAmount || 0)), 0),
+      outstanding: entries.reduce((s, e) => s + Math.max(0, Number(e.profitAmount || 0) - Number(e.receivedAmount || 0) - Number(e.capitalizedAmount || 0)), 0),
       count: items.length
     };
     return out;
@@ -81,6 +81,23 @@ async function saveMyInvestment() {
     toast('سرمایه‌گذاری ذخیره شد');
   } catch (e) { toast('خطا در ذخیره: ' + e.message, true); }
 }
+function myInvestmentBasisBefore(item, month) {
+  const prior = myInvestmentEntries.filter(e => e.investmentId === item.id && e.month < month);
+  return Math.max(0, Number(item.principal || 0)
+    - prior.reduce((s,e) => s + Number(e.capitalReturned || 0), 0)
+    + prior.reduce((s,e) => s + Number(e.reinvestedAmount || 0) + Number(e.capitalizedAmount || 0), 0));
+}
+function calculateMyMonthlyProfit(item, month, ratePercent) {
+  return myInvestmentBasisBefore(item, month) * Number(ratePercent || 0) / 100;
+}
+function updateMyEntryCalculatedProfit() {
+  const item = myInvestments.find(x => x.id === activeMyInvestmentId);
+  if (!item) return;
+  const month = document.getElementById('myEntryMonth').value;
+  const rate = Number(document.getElementById('myEntryRate').value || 0);
+  document.getElementById('myEntryBasis').value = personalMoney(myInvestmentBasisBefore(item, month), item.currency);
+  document.getElementById('myEntryProfit').value = calculateMyMonthlyProfit(item, month, rate).toFixed(2);
+}
 function openMyInvestmentEntryModal(id) {
   activeMyInvestmentId = id;
   const item = myInvestments.find(x => x.id === id);
@@ -96,15 +113,17 @@ async function saveMyInvestmentEntry() {
   const item = myInvestments.find(x => x.id === activeMyInvestmentId);
   if (!item) return;
   const month = document.getElementById('myEntryMonth').value;
+  const ratePercent = Number(document.getElementById('myEntryRate').value || 0);
+  const basisAmount = myInvestmentBasisBefore(item, month);
   const profitAmount = Number(document.getElementById('myEntryProfit').value || 0);
   const receivedAmount = Number(document.getElementById('myEntryReceived').value || 0);
   const capitalReturned = Number(document.getElementById('myEntryCapital').value || 0);
   const notes = document.getElementById('myEntryNotes').value.trim();
-  if (!month || profitAmount < 0 || receivedAmount < 0 || capitalReturned < 0 || (!profitAmount && !receivedAmount && !capitalReturned)) {
+  if (!month || ratePercent < 0 || profitAmount < 0 || receivedAmount < 0 || capitalReturned < 0 || Number(document.getElementById('myEntryReinvested')?.value || 0) < 0 || Number(document.getElementById('myEntryCapitalized')?.value || 0) < 0 || Number(document.getElementById('myEntryReinvested')?.value || 0) > receivedAmount + 0.005 || receivedAmount + Number(document.getElementById('myEntryCapitalized')?.value || 0) > profitAmount + 0.005 || (!profitAmount && !receivedAmount && !capitalReturned)) {
     toast('ماه و حداقل یکی از مبالغ را وارد کنید', true); return;
   }
   const existing = myInvestmentEntries.find(e => e.investmentId === item.id && e.month === month);
-  const payload = { ownerId: auth.currentUser.uid, investmentId: item.id, currency: item.currency, month, profitAmount, receivedAmount, capitalReturned, notes, updatedAt: new Date().toISOString() };
+  const payload = { ownerId: auth.currentUser.uid, investmentId: item.id, currency: item.currency, month, ratePercent, basisAmount, profitAmount, receivedAmount, capitalReturned, reinvestedAmount: Number(document.getElementById('myEntryReinvested')?.value || 0), capitalizedAmount: Number(document.getElementById('myEntryCapitalized')?.value || 0), notes, updatedAt: new Date().toISOString() };
   try {
     if (existing) {
       await db.collection('personalInvestmentEntries').doc(existing.id).set(payload, { merge: true });
@@ -145,7 +164,7 @@ function renderMyInvestments() {
   const rows = myInvestments.map(i => {
     const entries = myInvestmentEntries.filter(e => e.investmentId === i.id);
     const returned = entries.reduce((s,e)=>s+Number(e.capitalReturned||0),0);
-    const remaining = Math.max(0,Number(i.principal||0)-returned);
+    const remaining = Math.max(0,Number(i.principal||0)-returned+entries.reduce((s,e)=>s+Number(e.reinvestedAmount||0)+Number(e.capitalizedAmount||0),0));
     const earned = entries.reduce((s,e)=>s+Number(e.profitAmount||0),0);
     const received = entries.reduce((s,e)=>s+Number(e.receivedAmount||0),0);
     const outstanding = entries.reduce((s,e)=>s+Math.max(0,Number(e.profitAmount||0)-Number(e.receivedAmount||0)),0);
@@ -163,3 +182,5 @@ function renderMyInvestments() {
 function escapeHTML(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
+
+document.getElementById('myEntryMonth')?.addEventListener('change', updateMyEntryCalculatedProfit);

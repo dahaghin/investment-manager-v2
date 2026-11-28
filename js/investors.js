@@ -4,6 +4,7 @@ function openAddModal() {
   document.getElementById('invModalTitle').textContent = 'افزودن سرمایه‌گذار جدید';
   ['f_name','f_phone','f_notes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f_capital').value = '';
+  document.getElementById('f_currency').value = 'IRT';
   document.getElementById('f_rate').value = '';
   document.getElementById('f_start').value = todayJalali();
   document.getElementById('invModal').classList.add('show');
@@ -16,8 +17,10 @@ function openEditModal(id) {
   document.getElementById('f_name').value = inv.fullName || inv.name;
   document.getElementById('f_phone').value = inv.phone || '';
   document.getElementById('f_capital').value = inv.capital;
+  document.getElementById('f_currency').value = inv.currency || 'IRT';
   document.getElementById('f_rate').value = inv.monthlyInterestRate ?? inv.rate;
   document.getElementById('f_start').value = gregorianToJalaliStr(inv.startDate);
+  if (!document.getElementById('f_start').value) toast('تاریخ ذخیره‌شده معتبر نیست؛ لطفاً تاریخ صحیح را از تقویم انتخاب کنید.', true);
   document.getElementById('f_notes').value = inv.notes || '';
   document.getElementById('invModal').classList.add('show');
 }
@@ -28,10 +31,11 @@ async function saveInvestor() {
   const name = document.getElementById('f_name').value.trim();
   const phone = document.getElementById('f_phone').value.trim();
   const capital = Number(document.getElementById('f_capital').value);
+  const currency = document.getElementById('f_currency').value;
   const rate = Number(document.getElementById('f_rate').value);
   const startDateJalali = document.getElementById('f_start').value.trim();
   const notes = document.getElementById('f_notes').value.trim();
-  if (!name || !capital || !rate || !startDateJalali) { toast('لطفاً فیلدهای ستاره‌دار را پر کنید', true); return; }
+  if (!name || !capital || !rate || !startDateJalali || !['IRT','USD','AED'].includes(currency)) { toast('لطفاً فیلدهای ستاره‌دار را پر کنید', true); return; }
   const startDate = jalaliInputToGregorian(startDateJalali);
   if (!startDate || startDate.length < 8) { toast('فرمت تاریخ اشتباه است. مثال: 1403/01/01', true); return; }
   try {
@@ -39,7 +43,7 @@ async function saveInvestor() {
       const inv = investors.find(i => i.id === editId);
       const currentTransactions = getInvestorTransactions(inv);
       const initialDeposit = currentTransactions.find(t => t.type === 'capital_deposit');
-      await saveInvestorDB({ ...inv, fullName: name, name, phone, monthlyInterestRate: rate, rate, startDate, notes }, editId);
+      await saveInvestorDB({ ...inv, fullName: name, name, phone, monthlyInterestRate: rate, rate, currency, startDate, notes }, editId);
       if (initialDeposit && (Number(initialDeposit.amount) !== capital || initialDeposit.date !== startDate)) {
         await saveTransactionDB({ ...initialDeposit, amount: capital, date: startDate, description: initialDeposit.description || 'سرمایه اولیه' });
         await loadInvestors();
@@ -49,7 +53,7 @@ async function saveInvestor() {
       updateStats();
     } else {
       const tmpId = `pending-${Date.now()}`;
-      await saveInvestorDB({ fullName: name, name, phone, capital, monthlyInterestRate: rate, rate, startDate, notes, status: 'Active', transactions: [newTransaction(tmpId, 'capital_deposit', capital, startDate, 'سرمایه اولیه')] }, null);
+      await saveInvestorDB({ fullName: name, name, phone, capital, monthlyInterestRate: rate, rate, currency, startDate, notes, status: 'Active', transactions: [newTransaction(tmpId, 'capital_deposit', capital, startDate, 'سرمایه اولیه')] }, null);
       closeModal('invModal');
       updateStats();
     }
@@ -65,6 +69,7 @@ async function saveInvestor() {
 function openPayModal(id) {
   payInvId = id;
   const inv = investors.find(i => i.id === id);
+  document.getElementById('p_amount').previousElementSibling.textContent = 'مبلغ پرداختی (' + investorCurrencyLabel(inv.currency || 'IRT') + ') *';
   document.getElementById('p_amount').value = Math.round(monthlyProfit(inv));
   document.getElementById('p_date').value = todayJalali();
   document.getElementById('p_note').value = '';
@@ -109,6 +114,8 @@ async function deletePayment(invId, payId) {
 // ===== General Transactions =====
 function openTransactionModal(id, type) {
   payInvId = id;
+  const inv = investors.find(i => i.id === id);
+  document.getElementById('tx_amount').previousElementSibling.textContent = 'مبلغ (' + investorCurrencyLabel(inv?.currency || 'IRT') + ') *';
   document.getElementById('tx_type').value = type || 'capital_deposit';
   document.getElementById('tx_amount').value = '';
   document.getElementById('tx_date').value = todayJalali();
@@ -146,4 +153,44 @@ async function confirmDelete(id) {
   if (selectedId) renderDetail();
   else { document.getElementById('emptyState').style.display = 'flex'; document.getElementById('detailPanel').style.display = 'none'; }
   toast('سرمایه‌گذار حذف شد');
+}
+
+
+async function archiveInvestor(id) {
+  const inv = investors.find(x => x.id === id);
+  if (!inv) return;
+  const remainingCapital = activeCapital(inv);
+  const remainingProfit = isSettled(inv) ? 0 : unpaid(inv);
+  if (remainingCapital > 0) {
+    toast('ابتدا باید اصل سرمایه به‌طور کامل تسویه شود.', true);
+    return;
+  }
+  if (remainingProfit > 0) {
+    toast('هنوز سود پرداخت‌نشده وجود دارد. ابتدا سود را تسویه کنید.', true);
+    return;
+  }
+  if (!confirm('این سرمایه‌گذار از فهرست فعال خارج و به بایگانی منتقل شود؟ تمام سوابق و تراکنش‌ها حفظ می‌شوند.')) return;
+  try {
+    await archiveInvestorDB(id, true);
+    selectedArchivedId = id;
+    switchTab('archive');
+    toast('سرمایه‌گذار با حفظ تمام سوابق بایگانی شد.');
+  } catch (e) {
+    toast('خطا در بایگانی: ' + e.message, true);
+  }
+}
+
+async function restoreArchivedInvestor(id) {
+  const inv = archivedInvestors.find(x => x.id === id);
+  if (!inv || !confirm('این پرونده به فهرست سرمایه‌گذاران فعال برگردد؟')) return;
+  try {
+    await archiveInvestorDB(id, false);
+    selectedId = id;
+    switchTab('investors');
+    renderList();
+    renderDetail();
+    toast('پرونده به فهرست فعال بازگردانده شد.');
+  } catch (e) {
+    toast('خطا در بازگرداندن پرونده: ' + e.message, true);
+  }
 }
