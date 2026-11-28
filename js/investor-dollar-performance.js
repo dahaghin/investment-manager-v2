@@ -80,19 +80,32 @@ async function loadInvestorDollarPerformance(id = null) {
     }
     const initial = converted.find(e => e.type === 'capital_deposit');
     const benchmarkUSD = converted.reduce((sum,e) => sum + e.signedUsd, 0);
-    const netPrincipalToman = converted.reduce((sum,e) => sum + (e.type === 'capital_deposit' || e.type === 'adjustment' ? e.amount : -e.amount), 0);
-    const currentToman = Math.max(0, ledgerCapitalBefore(inv, today));
-    const businessGrowthToman = currentToman - netPrincipalToman;
-    const businessGrowthPct = netPrincipalToman > 0 ? businessGrowthToman / netPrincipalToman * 100 : null;
-    const currentUSD = currentToman / todayFx;
-    const holdUSDValueToman = benchmarkUSD * todayFx;
-    const profitVsDollarToman = currentToman - holdUSDValueToman;
-    const profitVsDollarUSD = currentUSD - benchmarkUSD;
-    const percent = holdUSDValueToman > 0 ? (profitVsDollarToman / holdUSDValueToman) * 100 : null;
-    const complete = missing.length === 0 && benchmarkUSD > 0;
+    const totalContributionsToman = converted
+      .filter(e => e.type === 'capital_deposit' || (e.type === 'adjustment' && e.amount > 0))
+      .reduce((sum,e) => sum + e.amount, 0);
+    const totalPrincipalWithdrawals = converted
+      .filter(e => e.type === 'capital_withdrawal' || e.type === 'settlement')
+      .reduce((sum,e) => sum + e.amount, 0);
+    const currentPrincipalToman = Math.max(0, ledgerCapitalBefore(inv, today));
     const createdProfit = totalProfit(inv);
     const paidProfit = totalPaid(inv);
     const outstandingProfit = unpaid(inv);
+    const capitalizedProfit = getInvestorTransactions(inv)
+      .filter(t => t.type === 'compound_profit' && t.date <= today)
+      .reduce((sum,t) => sum + Number(t.amount || 0), 0);
+    // Total realised + retained value: current principal, all accrued profit
+    // (paid and unpaid), capitalised profit, and principal already returned.
+    const actualTotalValueToman = currentPrincipalToman + createdProfit + capitalizedProfit + totalPrincipalWithdrawals;
+    // Dollar alternative: remaining USD benchmark at today's FX plus principal
+    // withdrawals already received in Toman and held as cash.
+    const holdUSDValueToman = benchmarkUSD * todayFx + totalPrincipalWithdrawals;
+    const businessGrowthToman = actualTotalValueToman - totalContributionsToman;
+    const businessGrowthPct = totalContributionsToman > 0 ? businessGrowthToman / totalContributionsToman * 100 : null;
+    const dollarGrowthToman = holdUSDValueToman - totalContributionsToman;
+    const profitVsDollarToman = actualTotalValueToman - holdUSDValueToman;
+    const profitVsDollarUSD = profitVsDollarToman / todayFx;
+    const percent = holdUSDValueToman > 0 ? (profitVsDollarToman / holdUSDValueToman) * 100 : null;
+    const complete = missing.length === 0 && benchmarkUSD > 0;
     const rows = converted.map(e =>
       '<tr><td>' + dollarPerfISOToJalali(e.date) + '</td><td>' + e.label + '</td><td>' + investorDollarMoney(e.amount) + '</td><td>' + investorDollarRate(e.rate) + '</td><td>' + (e.signedUsd < 0 ? '−' : '+') + investorDollarMoney(e.usd,'USD') + '</td></tr>'
     ).join('');
@@ -103,9 +116,9 @@ async function loadInvestorDollarPerformance(id = null) {
         '<article class="dp-kpi"><span>اصل سرمایه اولیه</span><strong>' + investorDollarMoney(initial?.amount || 0) + '</strong><small>' + (initial ? 'ورود در ' + dollarPerfISOToJalali(initial.date) : 'واریز اولیه پیدا نشد') + '</small></article>' +
         '<article class="dp-kpi"><span>نرخ دلار روز ورود</span><strong>' + (initial ? investorDollarRate(initial.rate) : '—') + '</strong><small>نرخ تاریخی همان روز</small></article>' +
         '<article class="dp-kpi"><span>معادل دلار در روز ورود</span><strong>' + (initial ? investorDollarMoney(initial.usd,'USD') : '—') + '</strong><small>مبلغ اولیه ÷ نرخ همان روز</small></article>' +
-        '<article class="dp-kpi"><span>ارزش امروز اگر دلار نگه می‌داشتی</span><strong>' + investorDollarMoney(holdUSDValueToman) + '</strong><small>' + investorDollarMoney(benchmarkUSD,'USD') + ' × نرخ امروز</small></article>' +
-        '<article class="dp-kpi"><span>ارزش فعلی اصل سرمایه در کسب‌وکار</span><strong>' + investorDollarMoney(currentToman) + '</strong><small>نرخ دلار امروز: ' + investorDollarRate(todayFx) + '</small></article>' +
-        '<article class="dp-kpi"><span>رشد اصل سرمایه در کسب‌وکار</span><strong class="' + (businessGrowthToman >= 0 ? 'positive' : 'negative') + '">' + investorDollarMoney(businessGrowthToman) + '</strong><small>' + investorDollarPct(businessGrowthPct) + ' نسبت به خالص اصل سرمایه ورودی</small></article>' +
+        '<article class="dp-kpi"><span>ارزش امروز اگر دلار نگه می‌داشتی</span><strong>' + investorDollarMoney(holdUSDValueToman) + '</strong><small>' + investorDollarMoney(benchmarkUSD,'USD') + ' × نرخ امروز' + (totalPrincipalWithdrawals ? ' + برداشت‌های اصل سرمایه' : '') + '</small></article>' +
+        '<article class="dp-kpi"><span>ارزش کل سرمایه‌گذاری امروز با سودها</span><strong>' + investorDollarMoney(actualTotalValueToman) + '</strong><small>اصل سرمایه + سود ایجادشده + سود سرمایه‌ای‌شده + اصل برداشت‌شده</small></article>' +
+        '<article class="dp-kpi"><span>رشد کل سرمایه‌گذاری به تومان</span><strong class="' + (businessGrowthToman >= 0 ? 'positive' : 'negative') + '">' + investorDollarMoney(businessGrowthToman) + '</strong><small>' + investorDollarPct(businessGrowthPct) + ' نسبت به کل واریزی‌های اصل سرمایه</small></article>' +
         '<article class="dp-kpi dp-kpi-main"><span>نتیجه در مقایسه با نگهداری دلار</span><strong class="' + (profitVsDollarToman >= 0 ? 'positive' : 'negative') + '">' + (complete ? investorDollarPct(percent) : 'ناقص') + '</strong><small class="' + (profitVsDollarToman >= 0 ? 'positive' : 'negative') + '">' + (complete ? (profitVsDollarToman >= 0 ? '+' : '−') + investorDollarMoney(Math.abs(profitVsDollarToman)) + ' · ' + (profitVsDollarUSD >= 0 ? '+' : '−') + investorDollarMoney(Math.abs(profitVsDollarUSD),'USD') : 'نرخ تاریخی بعضی تراکنش‌ها موجود نیست') + '</small></article>' +
       '</div>' +
       '<div class="dp-footnote"><b>روش مقایسه:</b> هر واریز اصل سرمایه با نرخ دلار تاریخ خودش به دلار تبدیل می‌شود؛ برداشت اصل سرمایه از سناریوی نگهداری دلار کم می‌شود. سپس آن دلارها با نرخ امروز ارزش‌گذاری می‌شوند و با مانده فعلی اصل سرمایه مقایسه می‌شوند. سود ماهانه در این مقایسه وارد نشده است.</div>' +
