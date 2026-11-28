@@ -94,6 +94,55 @@ body { font-family: 'Vazirmatn', sans-serif; background: var(--bg); color: var(-
 .stat-card.s-red .stat-val { color: var(--red); }
 .stat-sub { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
 
+/* Beta 5: readable stacked top summary cards and per-currency rows */
+.stats-bar-stacked {
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: stretch;
+  gap: 10px;
+}
+.stats-bar-stacked .stat-card {
+  min-width: 0;
+  padding: 16px 20px;
+}
+.stats-bar-stacked .stat-val {
+  font-size: 17px;
+  line-height: 1.65;
+}
+.stat-currency-lines {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  width: 100%;
+}
+.stat-currency-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
+.stat-currency-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.stat-currency-row span {
+  color: var(--text-muted);
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+.stat-currency-row strong {
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  font-weight: 700;
+}
+@media (max-width: 760px) {
+  .stats-bar-stacked .stat-val { font-size: 16px; }
+  .stat-currency-row strong { font-size: 14px; }
+}
+
 /* Main area */
 .main-area { display: flex; flex: 1; overflow: hidden; }
 
