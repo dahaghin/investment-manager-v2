@@ -153,3 +153,43 @@ async function confirmDelete(id) {
   else { document.getElementById('emptyState').style.display = 'flex'; document.getElementById('detailPanel').style.display = 'none'; }
   toast('سرمایه‌گذار حذف شد');
 }
+
+
+async function archiveInvestor(id) {
+  const inv = investors.find(x => x.id === id);
+  if (!inv) return;
+  const remainingCapital = activeCapital(inv);
+  const remainingProfit = isSettled(inv) ? 0 : unpaid(inv);
+  if (remainingCapital > 0) {
+    toast('ابتدا باید اصل سرمایه به‌طور کامل تسویه شود.', true);
+    return;
+  }
+  if (remainingProfit > 0) {
+    toast('هنوز سود پرداخت‌نشده وجود دارد. ابتدا سود را تسویه کنید.', true);
+    return;
+  }
+  if (!confirm('این سرمایه‌گذار از فهرست فعال خارج و به بایگانی منتقل شود؟ تمام سوابق و تراکنش‌ها حفظ می‌شوند.')) return;
+  try {
+    await archiveInvestorDB(id, true);
+    selectedArchivedId = id;
+    switchTab('archive');
+    toast('سرمایه‌گذار با حفظ تمام سوابق بایگانی شد.');
+  } catch (e) {
+    toast('خطا در بایگانی: ' + e.message, true);
+  }
+}
+
+async function restoreArchivedInvestor(id) {
+  const inv = archivedInvestors.find(x => x.id === id);
+  if (!inv || !confirm('این پرونده به فهرست سرمایه‌گذاران فعال برگردد؟')) return;
+  try {
+    await archiveInvestorDB(id, false);
+    selectedId = id;
+    switchTab('investors');
+    renderList();
+    renderDetail();
+    toast('پرونده به فهرست فعال بازگردانده شد.');
+  } catch (e) {
+    toast('خطا در بازگرداندن پرونده: ' + e.message, true);
+  }
+}
