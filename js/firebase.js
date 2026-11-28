@@ -121,6 +121,7 @@ async function loadInvestors() {
     .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
   archivedInvestors = allInvestors.filter(inv => !!inv.archivedAt);
   investors = allInvestors.filter(inv => !inv.archivedAt);
+  if (selectedId && !investors.some(inv => inv.id === selectedId)) selectedId = investors[0]?.id || null;
   cheques = chqSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderList();
   updateStats();
