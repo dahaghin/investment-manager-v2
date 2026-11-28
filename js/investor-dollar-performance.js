@@ -1,6 +1,7 @@
 // ===== Beta 5: Principal-only performance vs USD; monthly profit remains Toman =====
 let investorDollarRows = [];
 let investorDollarBusy = false;
+let investorDollarSelectedId = null;
 
 function investorDollarMoney(value, currency = 'IRT') {
   const n = Number(value || 0);
@@ -18,7 +19,9 @@ async function investorDollarFxForDate(date) {
   }
   return dollarPerfRateForDate(date);
 }
-async function loadInvestorDollarPerformance() {
+async function loadInvestorDollarPerformance(selectedId = null) {
+  if (selectedId) investorDollarSelectedId = selectedId;
+  else if (!investorDollarSelectedId && selectedId === null && typeof selectedId !== 'undefined') investorDollarSelectedId = window.selectedId || null;
   const host = document.getElementById('investorDollarContent');
   if (!host || investorDollarBusy) return;
   investorDollarBusy = true;
@@ -93,6 +96,9 @@ async function loadInvestorDollarPerformance() {
       });
     }
     investorDollarRows = results;
+    if (!investorDollarSelectedId || !results.some(r => r.inv.id === investorDollarSelectedId)) {
+      investorDollarSelectedId = results[0]?.inv.id || null;
+    }
     renderInvestorDollarPerformance(todayFx, skippedCurrencies);
   } catch (e) {
     host.innerHTML = '<div class="dp-error">محاسبه عملکرد اصل سرمایه کامل نشد: ' + dollarPerfSafe(e.message) +
@@ -101,47 +107,52 @@ async function loadInvestorDollarPerformance() {
     investorDollarBusy = false;
   }
 }
+function investorDollarSelect(id) {
+  investorDollarSelectedId = id;
+  renderInvestorDollarPerformance(window.investorDollarCurrentFx || 0, []);
+}
 function renderInvestorDollarPerformance(todayFx, skippedCurrencies = []) {
   const host = document.getElementById('investorDollarContent');
   if (!host) return;
+  if (todayFx > 0) window.investorDollarCurrentFx = todayFx;
   const rows = investorDollarRows;
+  const selected = rows.find(r => r.inv.id === investorDollarSelectedId) || rows[0] || null;
   const valid = rows.filter(r => r.complete && r.benchmarkUSD > 0);
-  const totalInitialToman = rows.reduce((s, r) => s + r.netPrincipalToman, 0);
-  const totalCurrentToman = rows.reduce((s, r) => s + r.currentPrincipalToman, 0);
   const totalBenchmarkUSD = valid.reduce((s, r) => s + r.benchmarkUSD, 0);
   const totalCurrentUSD = valid.reduce((s, r) => s + r.currentPrincipalUSD, 0);
-  const totalProfitCreated = rows.reduce((s, r) => s + r.profitCreatedToman, 0);
-  const totalProfitPaid = rows.reduce((s, r) => s + r.profitPaidToman, 0);
-  const totalProfitOutstanding = rows.reduce((s, r) => s + r.profitOutstandingToman, 0);
   const money = n => investorDollarMoney(n, 'IRT');
   const usd = n => investorDollarMoney(n, 'USD');
   const pct = n => n === null || !Number.isFinite(n) ? '—' : (n >= 0 ? '+' : '') + new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(n) + '٪';
   const signedMoney = (n, c) => (n >= 0 ? '+' : '−') + (c === 'USD' ? usd(Math.abs(n)) : money(Math.abs(n)));
-  const overallTomanPct = totalInitialToman > 0 ? (totalCurrentToman / totalInitialToman - 1) * 100 : null;
   const overallUsdPct = totalBenchmarkUSD > 0 ? (totalCurrentUSD / totalBenchmarkUSD - 1) * 100 : null;
+  const investorOptions = rows.map(r => '<button type="button" class="btn ' + (selected && r.inv.id === selected.inv.id ? 'btn-gold' : 'btn-secondary') + '" style="margin:4px" onclick="investorDollarSelect(\'' + String(r.inv.id).replace(/'/g, "\\'") + '\')">' + dollarPerfSafe(r.inv.fullName || r.inv.name || 'بدون نام') + '</button>').join('');
+  let detail = '<div class="dp-empty">برای محاسبه، یک سرمایه‌گذار را انتخاب کن.</div>';
+  if (selected) {
+    const r = selected;
+    const name = dollarPerfSafe(r.inv.fullName || r.inv.name || 'بدون نام');
+    const missing = r.missingRates.length ? '<div class="dp-error">برای تاریخ‌های زیر نرخ تاریخی پیدا نشد؛ نتیجه دلاری کامل نیست: ' + r.missingRates.map(x => dollarPerfISOToJalali(x.date)).join('، ') + '</div>' : '';
+    detail = '<article class="personal-investment-card"><div class="personal-investment-head"><div><h3>' + name + '</h3><p>تاریخ شروع: ' + dollarPerfISOToJalali(r.inv.startDate) + '</p></div><span class="investment-status">مقایسه با دلار</span></div>' +
+      '<div class="personal-investment-metrics">' +
+      '<div><small>اصل سرمایه اولیه</small><b>' + money(r.events.filter(e => e.type === 'capital_deposit').reduce((s,e)=>s+e.toman,0)) + '</b></div>' +
+      '<div><small>نرخ دلار تاریخ سرمایه‌گذاری</small><b>' + (r.events.find(e => e.type === 'capital_deposit') ? investorDollarRate(r.events.find(e => e.type === 'capital_deposit').fx) : '—') + '</b></div>' +
+      '<div><small>معادل دلاری روز سرمایه‌گذاری</small><b>' + usd(r.events.filter(e => e.type === 'capital_deposit').reduce((s,e)=>s+e.usd,0)) + '</b></div>' +
+      '<div><small>مانده اصل سرمایه امروز</small><b>' + money(r.currentPrincipalToman) + '</b></div>' +
+      '<div><small>نرخ دلار امروز</small><b>' + investorDollarRate(window.investorDollarCurrentFx || todayFx) + '</b></div>' +
+      '<div><small>ارزش دلاری اصل سرمایه امروز</small><b>' + usd(r.currentPrincipalUSD) + '</b></div>' +
+      '<div><small>اگر دلار نگه می‌داشتی، امروز داشتی</small><b>' + usd(r.benchmarkUSD) + '</b></div>' +
+      '<div><small>سود / زیان نسبت به دلار</small><b class="' + (r.usdChange !== null && r.usdChange >= 0 ? 'positive' : 'negative') + '">' + (r.usdPercent === null ? 'نیازمند نرخ تاریخی' : pct(r.usdPercent) + ' · ' + signedMoney(r.usdChange, 'USD')) + '</b></div>' +
+      '</div>' +
+      '<div class="dp-footnote">مقایسه فقط بر اساس اصل سرمایه است. سود ماهانه، پرداخت‌شده و طلب پرداخت‌نشده جدا می‌مانند و وارد این محاسبه نمی‌شوند.</div>' +
+      '<div class="dp-footnote">سود ماهانه ایجادشده: ' + money(r.profitCreatedToman) + ' · پرداخت‌شده: ' + money(r.profitPaidToman) + ' · طلب باقی‌مانده: ' + money(r.profitOutstandingToman) + '</div>' +
+      missing +
+      '<details class="investment-history" open><summary>تاریخچه و نرخ دلار هر واریز / برداشت</summary><div class="table-wrap"><table><thead><tr><th>تاریخ شمسی</th><th>شرح</th><th>مبلغ تومان</th><th>نرخ دلار همان روز</th><th>معادل دلار</th></tr></thead><tbody>' +
+      (r.events.map(e => '<tr><td>' + dollarPerfISOToJalali(e.date) + '</td><td>' + e.label + '</td><td>' + money(e.toman) + '</td><td>' + investorDollarRate(e.fx) + '</td><td>' + (e.signedUsd < 0 ? '−' : '+') + usd(e.usd) + '</td></tr>').join('') || '<tr><td colspan="5">تراکنش اصل سرمایه ثبت نشده است.</td></tr>') +
+      '</tbody></table></div></details></article>';
+  }
   host.innerHTML =
-    '<div class="dp-header"><div><div class="dp-eyebrow">ALIZO · PRINCIPAL PERFORMANCE</div><h2>عملکرد اصل سرمایه؛ تومان در برابر دلار</h2><p>فقط اصل سرمایه مقایسه می‌شود؛ سود ماهانه کاملاً جدا و فقط به تومان نمایش داده می‌شود.</p></div><button class="btn btn-secondary" onclick="loadInvestorDollarPerformance()">↻ محاسبه مجدد</button></div>' +
-    '<div class="dp-kpis">' +
-      '<article class="dp-kpi"><span>رشد اصل سرمایه به تومان</span><strong class="' + (overallTomanPct !== null && overallTomanPct >= 0 ? 'positive' : 'negative') + '">' + pct(overallTomanPct) + '</strong><small>' + signedMoney(totalCurrentToman - totalInitialToman, 'IRT') + '</small></article>' +
-      '<article class="dp-kpi dp-kpi-main"><span>رشد اصل سرمایه نسبت به دلار</span><strong class="' + (overallUsdPct !== null && overallUsdPct >= 0 ? 'positive' : 'negative') + '">' + pct(overallUsdPct) + '</strong><small>' + signedMoney(totalCurrentUSD - totalBenchmarkUSD, 'USD') + ' نسبت به نگهداری دلار</small></article>' +
-      '<article class="dp-kpi"><span>سود ماهانه ایجادشده</span><strong>' + money(totalProfitCreated) + '</strong><small>فقط تومان · بدون تبدیل به دلار</small></article>' +
-      '<article class="dp-kpi"><span>سود پرداخت‌شده / طلب باقی‌مانده</span><strong>' + money(totalProfitPaid) + '</strong><small>طلب سود: ' + money(totalProfitOutstanding) + '</small></article>' +
-    '</div>' +
-    '<div class="dp-footnote"><b>روش محاسبه:</b> هر واریز و اصلاحیه اصل سرمایه با نرخ دلار همان تاریخ به دلار تبدیل می‌شود؛ برداشت اصل سرمایه نیز در همان تاریخ از سناریوی دلاری کم می‌شود. سپس معادل دلاری مانده اصل سرمایه با نرخ دلار امروز سنجیده می‌شود. سودهای ماهانه، پرداخت سود و سود دریافت‌نشده وارد مقایسه دلار نمی‌شوند. رشد تومانی نیز بر مبنای خالص اصل سرمایه ثبت‌شده و مانده فعلی اصل سرمایه است.</div>' +
-    '<div class="dp-footnote">نرخ دلار امروز: <b>' + investorDollarRate(todayFx) + '</b>. نرخ تاریخی هر واریز در جزئیات همان سرمایه‌گذار قابل مشاهده است.</div>' +
-    (skippedCurrencies.length ? '<div class="dp-error">سرمایه‌گذاران با ارز پایه دلار یا درهم در مقایسه تومان/دلار وارد نشده‌اند: ' + skippedCurrencies.map(x => dollarPerfSafe(x.name) + ' (' + x.currency + ')').join('، ') + '. مانده آن‌ها با ارز اصلی‌شان باید جداگانه بررسی شود.</div>' : '') +
-    '<div class="personal-investment-list">' +
-      (rows.map(r => {
-        const name = escapeHTML(r.inv.fullName || r.inv.name || 'بدون نام');
-        const missing = r.missingRates.length ? '<div class="dp-error">برای این تاریخ‌ها نرخ تاریخی پیدا نشد؛ نتیجه دلاری این سرمایه‌گذار ناقص است: ' + r.missingRates.map(x => milToJalali(x.date)).join('، ') + '</div>' : '';
-        const usdResult = r.complete && r.usdPercent !== null ? '<div><small>رشد دلاری اصل سرمایه</small><b class="' + (r.usdPercent >= 0 ? 'positive' : 'negative') + '">' + pct(r.usdPercent) + ' · ' + signedMoney(r.usdChange, 'USD') + '</b></div>' : '<div><small>رشد دلاری اصل سرمایه</small><b>نیازمند نرخ تاریخی</b></div>';
-        return '<article class="personal-investment-card"><div class="personal-investment-head"><div><h3>' + name + '</h3><p>شروع: ' + milToJalali(r.inv.startDate) + ' · نرخ قراردادی: ' + Number(r.inv.monthlyInterestRate || r.inv.rate || 0) + '٪ ماهانه</p></div><span class="investment-status">اصل سرمایه</span></div>' +
-          '<div class="personal-investment-metrics"><div><small>خالص اصل سرمایه ثبت‌شده</small><b>' + money(r.netPrincipalToman) + '</b></div><div><small>مانده فعلی اصل سرمایه</small><b>' + money(r.currentPrincipalToman) + '</b></div><div><small>معادل دلار مبنا</small><b>' + usd(r.benchmarkUSD) + '</b></div><div><small>ارزش دلاری فعلی اصل سرمایه</small><b>' + usd(r.currentPrincipalUSD) + '</b></div><div><small>رشد تومانی اصل سرمایه</small><b class="' + (r.tomanChange >= 0 ? 'positive' : 'negative') + '">' + pct(r.tomanPercent) + ' · ' + signedMoney(r.tomanChange, 'IRT') + '</b></div>' + usdResult + '</div>' +
-          '<div class="dp-footnote">سود ماهانه (جدا از اصل سرمایه): ایجادشده ' + money(r.profitCreatedToman) + ' · پرداخت‌شده ' + money(r.profitPaidToman) + ' · طلب باقی‌مانده ' + money(r.profitOutstandingToman) + '</div>' +
-          missing +
-          '<details class="investment-history"><summary>ریز واریز و برداشت اصل سرمایه (' + r.events.length + ')</summary><div class="table-wrap"><table><thead><tr><th>تاریخ</th><th>شرح</th><th>مبلغ تومانی</th><th>نرخ دلار همان روز</th><th>معادل دلاری</th></tr></thead><tbody>' +
-          (r.events.map(e => '<tr><td>' + milToJalali(e.date) + '</td><td>' + e.label + '</td><td>' + money(e.toman) + '</td><td>' + investorDollarRate(e.fx) + '</td><td>' + (e.signedUsd < 0 ? '−' : '+') + usd(e.usd) + '</td></tr>').join('') || '<tr><td colspan="5">تراکنش اصل سرمایه ثبت نشده است.</td></tr>') +
-          '</tbody></table></div></details></article>';
-      }).join('') || '<div class="empty-state">سرمایه‌گذار فعالی برای محاسبه وجود ندارد.</div>') +
-    '</div>';
+    '<div class="dp-header"><div><div class="dp-eyebrow">ALIZO · INVESTOR USD PERFORMANCE</div><h2>عملکرد دلاری هر سرمایه‌گذار</h2><p>نام سرمایه‌گذار را انتخاب کن تا نرخ دلار روز شروع و نرخ امروز، خودکار مقایسه شوند.</p></div><button class="btn btn-secondary" onclick="loadInvestorDollarPerformance(investorDollarSelectedId)">↻ محاسبه مجدد</button></div>' +
+    '<div class="dp-kpis"><article class="dp-kpi dp-kpi-main"><span>بازده دلاری سرمایه‌گذاران تومانی</span><strong class="' + (overallUsdPct !== null && overallUsdPct >= 0 ? 'positive' : 'negative') + '">' + pct(overallUsdPct) + '</strong><small>' + signedMoney(totalCurrentUSD - totalBenchmarkUSD, 'USD') + ' نسبت به نگهداری دلار</small></article><article class="dp-kpi"><span>نرخ دلار امروز</span><strong>' + investorDollarRate(window.investorDollarCurrentFx || todayFx) + '</strong><small>منبع نرخ تاریخی و نرخ روز</small></article></div>' +
+    '<div class="dp-panel"><div class="dp-panel-title"><h3>انتخاب سرمایه‌گذار</h3></div><div>' + (investorOptions || '<div class="dp-empty">سرمایه‌گذار تومانی فعالی برای مقایسه وجود ندارد.</div>') + '</div></div>' +
+    '<div class="personal-investment-list">' + detail + '</div>' +
+    (skippedCurrencies.length ? '<div class="dp-footnote">سرمایه‌گذاران با ارز پایه USD یا AED فعلاً در مقایسه تومان/دلار قرار نگرفته‌اند: ' + skippedCurrencies.map(x => dollarPerfSafe(x.name) + ' (' + x.currency + ')').join('، ') + '.</div>' : '');
 }
