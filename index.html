@@ -59,6 +59,7 @@
 
   <div class="tabs">
     <div class="tab active" data-tab="investors" onclick="switchTab('investors')">👥 سرمایه‌گذاران</div>
+    <div class="tab" data-tab="archive" onclick="switchTab('archive')">🗄️ بایگانی</div>
     <div class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">📈 داشبورد مدیریت</div>
     <div class="tab" data-tab="cheques" onclick="switchTab('cheques')">🏦 چک‌ها</div>
     <div class="tab" data-tab="report" onclick="switchTab('report')">📊 گزارش کلی</div>
@@ -119,6 +120,9 @@
         <div id="detailPanel" style="display:none"></div>
       </div>
 
+      <!-- Archived investors -->
+      <div class="page" id="tab-archive"><div id="archiveContent"></div></div>
+
       <!-- Dashboard tab -->
       <div class="page" id="tab-dashboard">
         <div id="dashboardContent"></div>
@@ -145,6 +149,7 @@
   <nav class="mobile-bottom-nav" aria-label="ناوبری موبایل">
     <button class="mobile-nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')"><span>🏠</span><b>Home</b></button>
     <button class="mobile-nav-item" data-tab="investors" onclick="switchTab('investors')"><span>👥</span><b>Investors</b></button>
+    <button class="mobile-nav-item" data-tab="archive" onclick="switchTab('archive')"><span>🗄️</span><b>Archive</b></button>
     <button class="mobile-nav-item" data-tab="cheques" onclick="switchTab('cheques')"><span>💳</span><b>Transactions</b></button>
     <button class="mobile-nav-item" data-tab="report" onclick="switchTab('report')"><span>📊</span><b>Reports</b></button>
     <button class="mobile-nav-item" data-tab="personal" onclick="switchTab('personal')"><span>🧾</span><b>Reports</b></button>
