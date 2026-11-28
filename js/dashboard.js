@@ -61,6 +61,12 @@ function selectInv(id) {
   selectedId = id;
   renderList();
   renderDetail();
+  // When the USD performance page is open, selecting a name in the shared
+  // investor sidebar immediately recalculates that investor's USD comparison.
+  if (document.getElementById('tab-investor-dollar-performance')?.classList.contains('active') ||
+      document.getElementById('investorDollarContent')?.closest('.page')?.classList.contains('active')) {
+    if (typeof loadInvestorDollarPerformance === 'function') loadInvestorDollarPerformance(id);
+  }
   if (window.innerWidth < 700) {
     document.querySelector('.content-area').scrollIntoView({ behavior: 'smooth' });
   }
