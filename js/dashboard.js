@@ -1,13 +1,19 @@
 // ===== Stats =====
 function updateStats() {
-  const grouped = (selector) => ['IRT','USD','AED'].map(currency => {
-    const total = investors.filter(i => (i.currency || 'IRT') === currency).reduce((sum, inv) => sum + Number(selector(inv) || 0), 0);
-    return total ? investorMoney({currency}, total) : '';
-  }).filter(Boolean).join(' · ') || '—';
-  document.getElementById('stCapital').textContent = grouped(activeCapital);
-  document.getElementById('stMonthly').textContent = grouped(totalProfit);
-  document.getElementById('stCount').textContent = grouped(inv => getInvestorTransactions(inv).filter(t => t.type === 'settlement' && t.date === todayGregorian()).reduce((s,t) => s + Number(t.amount), 0));
-  document.getElementById('stUnpaid').textContent = grouped(totalPaid);
+  const grouped = (selector) => {
+    const rows = ['IRT','USD','AED'].map(currency => {
+      const total = investors.filter(i => (i.currency || 'IRT') === currency)
+        .reduce((sum, inv) => sum + Number(selector(inv) || 0), 0);
+      if (!total) return '';
+      const label = currency === 'IRT' ? 'تومان' : currency === 'USD' ? 'دلار آمریکا' : 'درهم امارات';
+      return '<div class="stat-currency-row"><span>' + label + '</span><strong>' + investorMoney({currency}, total) + '</strong></div>';
+    }).filter(Boolean);
+    return rows.length ? '<div class="stat-currency-lines">' + rows.join('') + '</div>' : '—';
+  };
+  document.getElementById('stCapital').innerHTML = grouped(activeCapital);
+  document.getElementById('stMonthly').innerHTML = grouped(totalProfit);
+  document.getElementById('stCount').innerHTML = grouped(inv => getInvestorTransactions(inv).filter(t => t.type === 'settlement' && t.date === todayGregorian()).reduce((s,t) => s + Number(t.amount), 0));
+  document.getElementById('stUnpaid').innerHTML = grouped(totalPaid);
   const todayG = todayGregorian();
   const in7G = new Date(); in7G.setDate(in7G.getDate()+7);
   const in7Str = in7G.toISOString().split('T')[0];
