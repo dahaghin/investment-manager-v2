@@ -24,3 +24,20 @@
 .dp-modal-help{font-size:10px;line-height:1.8;color:var(--text-muted);margin-top:-3px}
 @media(max-width:900px){.dp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dp-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.dp-header{align-items:flex-start;flex-direction:column}.dp-header h2{font-size:20px}.dp-header-actions{width:100%}.dp-header-actions button{flex:1}.dp-rate-strip{align-items:flex-start;flex-wrap:wrap;gap:14px}.dp-rate-strip>button{width:100%}.dp-kpis{gap:8px}.dp-kpi{padding:12px}.dp-kpi strong{font-size:16px}.dp-filters>div{flex:1}.dp-filters>button{flex:1}.dp-panel{padding:13px}.dp-comparison{gap:8px}.dp-comparison>div{padding:9px}}
+
+/* Beta 5: investor opportunity-cost comparison history chart */
+.dp-investor-chart { margin-top:18px; padding-top:18px; border-top:1px solid var(--border); }
+.dp-investor-chart .dp-panel-title { margin-bottom:10px; }
+.dp-investor-history-svg { display:block; width:100%; height:auto; min-height:170px; max-height:300px; overflow:visible; }
+.dp-chart-legend { display:flex; flex-wrap:wrap; gap:18px; margin:8px 0 4px; color:var(--text-muted); font-size:11px; }
+.dp-chart-legend span { display:inline-flex; align-items:center; gap:7px; }
+.dp-chart-legend i { display:inline-block; width:18px; height:3px; border-radius:3px; }
+.dp-legend-actual { background:#34d399; }
+.dp-legend-dollar { background:#38bdf8; }
+.dp-chart-current { display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px; margin-top:8px; color:var(--text-muted); font-size:11px; }
+.dp-chart-current b { color:var(--text); font-variant-numeric:tabular-nums; }
+@media(max-width:600px) {
+  .dp-investor-chart { padding:14px 8px 4px; }
+  .dp-chart-current { flex-direction:column; }
+  .dp-investor-history-svg { min-height:140px; }
+}
